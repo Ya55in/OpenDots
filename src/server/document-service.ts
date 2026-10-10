@@ -1,3 +1,4 @@
+import { presentationTools } from './presentation-service.js';
 import { templateTools } from './template-service.js';
 import type { PlatformConfig } from './platform-config.js';
 import { createHash } from 'node:crypto';
@@ -219,6 +220,15 @@ export function documentTools(
   config?: PlatformConfig,
 ) {
   return [
+    ...presentationTools(
+      service,
+      dotId,
+      defaultSpace,
+      threadId,
+      check,
+      signal,
+      config,
+    ),
     ...templateTools(
       service,
       dotId,
@@ -231,10 +241,17 @@ export function documentTools(
     defineTool({
       name: 'generate_document',
       description:
-        'For a NEW design only; when reusing a prior Word file use find_word_templates, inspect_word_template and edit_word_template instead. Create real downloadable PDF, editable DOCX, XLSX, PPTX, Markdown, TXT or CSV files from final Markdown content. Use this tool whenever the user asks for a file; a page or pasted text is not a file. Files are saved in this Dot’s Space storage (Drive when connected) and returned as download links. PDF/Word have branded typography, wrapping tables and page numbers; slides are editable and split into readable sections. XLSX exports tables to sheets, CSV needs exactly one table. Use concise headings and Markdown tables; avoid emoji in PDFs, no HTML or image URLs (images are captions only). Preserve approved facts, sources, amounts and uncertainties. Never invent a logo/signature. Check returned errors/warnings before claiming completion. Request only the formats needed; PDF+DOCX is a useful document pair. Never claim visual inspection unless actually performed.',
-      parameters: documentSchema.extend({ spaceId: z.string().optional() }),
-      execute: async ({ spaceId, ...input }) =>
-        generateFiles(
+        'Basic text document export only. For branded/client-ready presentations use find_presentation_templates, inspect_presentation_template, create_presentation_from_template and review_presentation; this generic Markdown renderer cannot match premium slides, images or diagrams. PPTX here requires explicit plainSlides=true and is only for a plain text draft requested by the user. For a NEW document design only; when reusing a prior Word file use find_word_templates, inspect_word_template and edit_word_template instead. Create real downloadable PDF, editable DOCX, XLSX, PPTX, Markdown, TXT or CSV files from final Markdown content. Use this tool whenever the user asks for a file; a page or pasted text is not a file. Files are saved in this Dot’s Space storage (Drive when connected) and returned as download links. PDF/Word have branded typography, wrapping tables and page numbers; slides are editable and split into readable sections. XLSX exports tables to sheets, CSV needs exactly one table. Use concise headings and Markdown tables; avoid emoji in PDFs, no HTML or image URLs (images are captions only). Preserve approved facts, sources, amounts and uncertainties. Never invent a logo/signature. Check returned errors/warnings before claiming completion. Request only the formats needed; PDF+DOCX is a useful document pair. Never claim visual inspection unless actually performed.',
+      parameters: documentSchema.extend({
+        spaceId: z.string().optional(),
+        plainSlides: z.boolean().default(false),
+      }),
+      execute: async ({ spaceId, plainSlides, ...input }) => {
+        if (input.formats.includes('pptx') && !plainSlides)
+          throw new Error(
+            'Branded presentations require the original design workflow: find_presentation_templates → inspect_presentation_template → create_presentation_from_template → review_presentation. Use plainSlides=true only when the user explicitly requests a plain text slide draft.',
+          );
+        return generateFiles(
           service,
           dotId,
           spaceId ?? defaultSpace,
@@ -242,7 +259,8 @@ export function documentTools(
           input,
           check,
           signal,
-        ),
+        );
+      },
     }),
   ];
 }

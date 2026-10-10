@@ -232,7 +232,11 @@ export function Chat({
     {
       name: '*',
       render: (props: ComputerToolRenderProps) =>
-        ['generate_document', 'edit_word_template'].includes(props.name) ? (
+        [
+          'generate_document',
+          'edit_word_template',
+          'create_presentation_from_template',
+        ].includes(props.name) ? (
           <DocumentCard result={props.result} status={props.status} />
         ) : props.name.startsWith('computer_') ? (
           <ComputerToolCard
@@ -256,9 +260,11 @@ export function Chat({
           message.toolCalls?.some(
             (call) =>
               call.function.name.startsWith('computer_') ||
-              ['generate_document', 'edit_word_template'].includes(
-                call.function.name,
-              ) ||
+              [
+                'generate_document',
+                'edit_word_template',
+                'create_presentation_from_template',
+              ].includes(call.function.name) ||
               call.function.name === pageReviewTool.name ||
               call.function.name === connectionActionTool.name,
           ))),

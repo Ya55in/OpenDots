@@ -132,6 +132,8 @@ describe('original Word templates', () => {
       const zip = new JSZip();
       zip.file('files/orders/draft.docx', original);
       zip.file('notes.txt', 'not a template');
+      zip.file('files/brand/deck.pptx', Buffer.from('pptx-original'));
+
       const archive = await zip.generateAsync({ type: 'nodebuffer' }),
         doc = {
           path: 'draft.docx',
@@ -160,6 +162,30 @@ describe('original Word templates', () => {
         archiveWordFiles(store, 'space', imp.id, 'draft'),
       ).rejects.toThrow('verified');
       store.complete('space', imp.id);
+      expect(
+        (
+          await archiveWordFiles(
+            store,
+            'space',
+            imp.id,
+            'brand',
+            undefined,
+            'pptx',
+          )
+        ).entries,
+      ).toEqual(['files/brand/deck.pptx']);
+      expect(
+        (
+          await archiveWordFiles(
+            store,
+            'space',
+            imp.id,
+            '',
+            'files/brand/deck.pptx',
+            'pptx',
+          )
+        ).data?.toString(),
+      ).toBe('pptx-original');
       expect(
         (await archiveWordFiles(store, 'space', imp.id, 'draft')).entries,
       ).toEqual(['files/orders/draft.docx']);

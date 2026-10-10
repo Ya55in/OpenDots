@@ -4,6 +4,7 @@
     "aptPackages": [
       "...",
       "libreoffice-writer",
+      "libreoffice-impress",
       "poppler-utils",
       "fontconfig",
       "fonts-crosextra-carlito",

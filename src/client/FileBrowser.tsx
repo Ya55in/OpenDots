@@ -240,7 +240,7 @@ export function FileBrowser({
               </small>
               <small>{f.textStatus}</small>
             </div>
-            {/\.(pdf|docx)$/i.test(f.name) && (
+            {/\.(pdf|docx|pptx)$/i.test(f.name) && (
               <DocumentPreviewButton
                 spaceId={spaceId}
                 fileId={f.id}

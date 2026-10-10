@@ -41,7 +41,7 @@ export function DocumentFiles({ result }: { result: DocumentResult }) {
             </span>
             <Download size={18} />
           </button>
-          {/\.(pdf|docx)$/i.test(f.name) && (
+          {/\.(pdf|docx|pptx)$/i.test(f.name) && (
             <DocumentPreviewButton
               spaceId={f.spaceId}
               fileId={f.id}
