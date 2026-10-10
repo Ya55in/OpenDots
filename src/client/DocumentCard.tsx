@@ -50,11 +50,18 @@ export function DocumentFiles({ result }: { result: DocumentResult }) {
           )}
         </div>
       ))}
-      {result.warnings.map((w) => (
-        <p className="muted" key={w}>
-          {w}
-        </p>
-      ))}
+      {result.warnings
+        .filter(
+          (w) =>
+            !w.startsWith(
+              'Template formatting preserved. Visual review is pending:',
+            ),
+        )
+        .map((w) => (
+          <p className="muted" key={w}>
+            {w}
+          </p>
+        ))}
       {result.errors?.map((e) => (
         <p className="chat-error" role="alert" key={e}>
           {e}
