@@ -1,3 +1,4 @@
+import { UsagePanel } from './UsagePanel';
 import { JevDecisions } from './JevDecisions';
 import { useEffect, useState } from 'react';
 import { api } from './api';
@@ -130,12 +131,10 @@ export function ModelRouting({
           : 'not configured · agent rules active'}
         . {status.dailyTurnLimit} turn attempts per agent/day (UTC). AI budget:
         ${status.dailyUsd}/day workspace · ${status.dotDailyUsd}/day per Dot · $
-        {status.turnUsd}/request. Today since cost tracking began: $
-        {status.spending?.charged.toFixed(4) ?? '0'} reported + $
-        {status.spending?.reserved.toFixed(4) ?? '0'} reserved/unconfirmed.{' '}
-        Includes model calls, Jev and document visual review; external service
-        fees are separate.
+        {status.turnUsd}/request. Includes model calls, Jev and document visual
+        review; external service fees are separate.
       </small>
+      <UsagePanel threadId={threadId} />
       {threadId && status.jevConfigured && (
         <JevDecisions threadId={threadId} disabled={running || saving} />
       )}

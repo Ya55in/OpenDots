@@ -140,7 +140,11 @@ export function App() {
       setState(s);
       setWorkspace(w);
       setNeedsAuth(false);
-      setSelectedDot((previous) => previous || w.dots[0]?.id || '');
+      setSelectedDot((previous) =>
+        w.dots.some((dot) => dot.id === previous)
+          ? previous
+          : w.dots[0]?.id || '',
+      );
       setNotices((current) => applyRefreshResult(current, { ok: true }));
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) setNeedsAuth(true);
@@ -203,6 +207,7 @@ export function App() {
   const thread = workspace?.conversations.find(
     (item) => item.id === selectedThread && item.dotId === dot?.id,
   );
+  const isAdmin = workspace?.isAdmin !== false;
   const configured = !!workspace && workspace.setup.missing.length === 0;
   const setupStep = workspace
     ? dialog?.type === 'settings'
@@ -253,7 +258,8 @@ export function App() {
         <Mascot />
         <h1>Your own little corner.</h1>
         <p>
-          Enter the owner access token configured on this template’s server.
+          Enter your owner token or the member access code provided by your
+          administrator.
         </p>
         <form
           onSubmit={async (e) => {
@@ -274,7 +280,7 @@ export function App() {
         >
           <input
             type="password"
-            aria-label="Owner access token"
+            aria-label="OpenDots access code"
             autoComplete="current-password"
             value={auth}
             onChange={(e) => setAuth(e.target.value)}
@@ -288,6 +294,24 @@ export function App() {
           </p>
         )}
         <p className="muted">The token stays in this tab’s session storage.</p>
+      </main>
+    );
+  if (state && workspace && !workspace.dots.length)
+    return (
+      <main className="auth-screen">
+        <h1>No agents assigned yet</h1>
+        <p>
+          Your administrator can grant access to agents and Spaces in Settings →
+          Member access.
+        </p>
+        <button
+          onClick={() => {
+            setToken('');
+            location.reload();
+          }}
+        >
+          Sign out
+        </button>
       </main>
     );
   if (!state || !workspace || !dot)
@@ -337,13 +361,20 @@ export function App() {
         >
           <Folder size={18} />
         </button>
-        <button aria-label="Open activity" onClick={() => setView('tasks')}>
+        <button
+          aria-label="Open activity"
+          hidden={!isAdmin}
+          onClick={() => setView('tasks')}
+        >
           <Clock3 size={18} />
         </button>
         <button
           className="rail-settings"
           aria-label="Open settings"
-          onClick={() => setDialog({ type: 'settings' })}
+          hidden={!isAdmin}
+          onClick={() => {
+            if (isAdmin) setDialog({ type: 'settings' });
+          }}
         >
           <Settings2 size={18} />
         </button>
@@ -396,6 +427,7 @@ export function App() {
           <button
             className="icon-button"
             aria-label="Create Dot"
+            hidden={!isAdmin}
             onClick={() =>
               setDialog({ type: 'dot', spaceId: workspace.spaces[0].id })
             }
@@ -419,6 +451,7 @@ export function App() {
               <button
                 className="icon-button dot-settings"
                 aria-label={`Edit ${item.name} settings`}
+                hidden={!isAdmin}
                 onClick={() =>
                   setDialog({ type: 'dot', dot: item, spaceId: item.spaceId })
                 }
@@ -433,6 +466,7 @@ export function App() {
           <button
             className="icon-button"
             aria-label="Create Space"
+            hidden={!isAdmin}
             onClick={() => setDialog({ type: 'space' })}
           >
             <Plus size={14} />
@@ -474,6 +508,7 @@ export function App() {
         <div className="sidebar-bottom">
           <button
             className={`nav-item ${view === 'tasks' ? 'active' : ''}`}
+            hidden={!isAdmin}
             onClick={() => {
               setView('tasks');
               setMobile(false);
@@ -485,6 +520,7 @@ export function App() {
           </button>
           <button
             className={`nav-item ${view === 'memories' ? 'active' : ''}`}
+            hidden={!isAdmin}
             onClick={() => {
               setView('memories');
               setMobile(false);
@@ -498,10 +534,22 @@ export function App() {
           </button>
           <button
             className="nav-item"
-            onClick={() => setDialog({ type: 'settings' })}
+            hidden={!isAdmin}
+            onClick={() => {
+              if (isAdmin) setDialog({ type: 'settings' });
+            }}
           >
             <Settings2 size={17} />
-            <span>Settings & setup</span>
+            <span>{isAdmin ? 'Settings & setup' : 'Member access'}</span>
+          </button>
+          <button
+            className="nav-item"
+            onClick={() => {
+              setToken('');
+              location.reload();
+            }}
+          >
+            Sign out
           </button>
           <a
             className="nav-item"
@@ -550,6 +598,7 @@ export function App() {
             </span>
             <button
               className="pause-button"
+              hidden={!isAdmin}
               aria-label={
                 state.settings.paused ? 'Resume all Dots' : 'Pause all Dots'
               }
@@ -565,6 +614,7 @@ export function App() {
             <button
               className="icon-button"
               aria-label={pane ? 'Hide computer' : 'Show computer'}
+              hidden={!isAdmin}
               aria-expanded={pane}
               onClick={() => setPane(!pane)}
             >
@@ -624,7 +674,7 @@ export function App() {
                   dot={dot}
                   initialPrompt={pendingPrompt}
                   onConsumed={() => setPendingPrompt(undefined)}
-                  voiceReady={workspace.setup.voice}
+                  voiceReady={isAdmin && workspace.setup.voice}
                   calls={workspace.calls.filter(
                     (call) => call.threadId === thread.id,
                   )}
@@ -748,7 +798,9 @@ export function App() {
                     Slack · {workspace.setup.slack.replaceAll('_', ' ')}
                     <button
                       className="text-button"
-                      onClick={() => setDialog({ type: 'settings' })}
+                      onClick={() => {
+                        if (isAdmin) setDialog({ type: 'settings' });
+                      }}
                     >
                       Setup details
                     </button>
@@ -756,7 +808,7 @@ export function App() {
                 </div>
               )}
             </div>
-            {pane && (
+            {pane && isAdmin && (
               <ResultPane
                 key={dot.id}
                 dots={workspace.dots}
@@ -926,7 +978,7 @@ export function App() {
             )}
           </main>
         )}
-        {pane && view !== 'chat' && (
+        {pane && isAdmin && view !== 'chat' && (
           <div className="computer-overlay">
             <ResultPane
               key={view === 'space' ? spaceId : dot.id}
@@ -944,7 +996,7 @@ export function App() {
           </div>
         )}
       </div>
-      {dialog && (
+      {dialog && isAdmin && (
         <WorkspaceDialog
           dialog={dialog}
           state={state}

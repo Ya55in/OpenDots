@@ -53,7 +53,8 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
       dots: platform.workspace.dots(),
       conversations: platform.workspace.conversations(),
       setup: platform.setup(),
-      calls: platform.workspace.calls(),
+      calls: platform.workspace.member() ? [] : platform.workspace.calls(),
+      isAdmin: !platform.workspace.member(),
     }),
   );
   const routingStatus = () => ({
@@ -69,7 +70,6 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
     dailyUsd: platform.config.router?.dailyUsd,
     turnUsd: platform.config.router?.turnUsd,
     dotDailyUsd: platform.config.router?.dotDailyUsd,
-    spending: platform.workspace.routing.spending(),
   });
   app.get('/routing', (c) => c.json(routingStatus()));
   app.post('/business-agents/prepare', (c) => {

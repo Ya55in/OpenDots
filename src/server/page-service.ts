@@ -51,26 +51,32 @@ export class PageService {
         'Choose a specialist in this Space with access enabled.',
         400,
       );
-    const key = `${pageId}:${dotId}`;
+    const scopeDotId = this.workspace.member()
+      ? `${dotId}:${this.workspace.currentUserId}`
+      : dotId;
+    const key = `${pageId}:${scopeDotId}`;
     const pending = this.pending.get(key);
     if (pending) return pending;
-    const current = this.workspace.pages.thread(pageId, dotId);
+    const current = this.workspace.pages.thread(pageId, scopeDotId);
     if (current?.ready)
       return this.workspace.requireThread(current.threadId, dotId);
     const sdk = this.intelligence();
     const task = (async () => {
       const candidateId = randomUUID();
-      if (!this.workspace.pages.reserveThread(pageId, dotId, candidateId))
+      if (!this.workspace.pages.reserveThread(pageId, scopeDotId, candidateId))
         throw new PageError(
           'This page conversation is being created. Retry shortly.',
           409,
         );
-      const threadId = this.workspace.pages.thread(pageId, dotId)!.threadId;
+      const threadId = this.workspace.pages.thread(
+        pageId,
+        scopeDotId,
+      )!.threadId;
       try {
         await bounded(
           sdk.getOrCreateThread({
             threadId,
-            userId: this.workspace.ownerId,
+            userId: this.workspace.currentUserId,
             agentId: dotId,
             name: page.title,
           }),
@@ -80,10 +86,10 @@ export class PageService {
         const thread =
           this.workspace.conversations().find((t) => t.id === threadId) ??
           this.workspace.bindThread(threadId, dotId, page.title);
-        this.workspace.pages.finishThread(pageId, dotId);
+        this.workspace.pages.finishThread(pageId, scopeDotId);
         return thread;
       } catch (error) {
-        this.workspace.pages.releaseThread(pageId, dotId);
+        this.workspace.pages.releaseThread(pageId, scopeDotId);
         throw error;
       }
     })();
@@ -104,7 +110,7 @@ export class PageService {
     const history = await bounded(
       this.intelligence().getThreadMessages({
         threadId,
-        userId: this.workspace.ownerId,
+        userId: this.workspace.currentUserId,
       }),
     );
     const chunks: string[] = [];

@@ -20,7 +20,6 @@ export interface RoutingStatus {
   dailyUsd?: number;
   turnUsd?: number;
   dotDailyUsd?: number;
-  spending?: { charged: number; reserved: number; calls: number };
   preference?: RoutingPreference;
   lastDecision?: RoutingDecision | null;
 }

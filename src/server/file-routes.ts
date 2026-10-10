@@ -90,17 +90,23 @@ export function fileRoutes(service: FileService) {
     const dot = c.req.query('dotId');
     if (dot) service.scope(c.req.param('spaceId'), dot);
     return c.json(
-      store.list(
-        c.req.param('spaceId'),
-        dot,
-        (c.req.query('q') ?? '').slice(0, 500),
-        z.coerce
-          .number()
-          .int()
-          .min(0)
-          .max(50000)
-          .parse(c.req.query('offset') ?? 0),
-      ),
+      store
+        .list(
+          c.req.param('spaceId'),
+          dot,
+          (c.req.query('q') ?? '').slice(0, 500),
+          z.coerce
+            .number()
+            .int()
+            .min(0)
+            .max(50000)
+            .parse(c.req.query('offset') ?? 0),
+        )
+        .filter(
+          (file) =>
+            !service.workspace.member() ||
+            service.workspace.canAccessSpace(file.dotId, file.spaceId),
+        ),
     );
   });
   app.post('/spaces/:spaceId/files/uploads', async (c) => {

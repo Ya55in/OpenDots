@@ -183,7 +183,7 @@ it('runs the pinned model through the real adapter and records routing without c
       store,
       ws,
       {
-        router,
+        router: { ...router, turnUsd: 0.5 },
         apiKey: 'fixture',
         intelligenceKey: 'fixture',
         model: router.models.reasoning,
@@ -217,6 +217,13 @@ it('runs the pinned model through the real adapter and records routing without c
       }),
     );
     expect(body.models).toBeUndefined();
+    expect(JSON.stringify(body.messages[0])).toContain('cache_control');
+    expect(JSON.stringify(body.messages[0].content[0])).not.toContain(
+      '<opendots_runtime_context>',
+    );
+    expect(JSON.stringify(body.messages)).toContain(
+      '<opendots_runtime_context>',
+    );
     expect(ws.routing.lastDecision('thread')?.source).toBe('manual');
   } finally {
     ws.close();
