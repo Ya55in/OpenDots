@@ -7,7 +7,7 @@ import { archiveWordFiles } from './template-archive.js';
 import { editWord, inspectWord } from './word-template.js';
 import { renderPreview, reviewPreview } from './document-preview.js';
 import type { DocumentResult } from '../shared/documents.js';
-const sourceSchema = z.union([
+export const sourceSchema = z.union([
   z.object({ fileId: z.string().min(1).max(200) }).strict(),
   z
     .object({
@@ -25,14 +25,14 @@ export async function filePreview(
 ) {
   check();
   const file = await service.download(space, fileId);
-  if (!/\.(pdf|docx)$/i.test(file.name))
-    throw new Error('Page preview supports PDF and DOCX.');
+  if (!/\.(pdf|docx|pptx)$/i.test(file.name))
+    throw new Error('Page preview supports PDF, DOCX and PPTX.');
   const digest = createHash('sha256').update(file.data).digest('hex');
   const cached = service.workspace.files.preview(space, fileId);
   if (cached?.digest === digest) return cached;
   const { preview } = await renderPreview(
     file.data,
-    /\.docx$/i.test(file.name),
+    /\.pptx$/i.test(file.name) ? 'pptx' : /\.docx$/i.test(file.name),
     signal,
   );
   check();
@@ -273,7 +273,7 @@ export function templateTools(
     defineTool({
       name: 'review_document',
       description:
-        'Render every page of a saved PDF or DOCX and send the actual page images to the configured visual reviewer. Returns page-by-page observations and rendering/font warnings. Use after generation or template edits; fix reported layout issues before delivery. This checks visual appearance, not commercial accuracy or authenticity. Never claim successful review if the tool returns an error. Up to 30 pages per document.',
+        'Render every page of a saved PDF, DOCX or PPTX and send the actual page images to the configured visual reviewer. Returns page-by-page observations and rendering/font warnings. Use after generation or template edits; fix reported layout issues before delivery. This checks visual appearance, not commercial accuracy or authenticity. Never claim successful review if the tool returns an error. Up to 30 pages per document.',
       parameters: z.object({ fileId: z.string().min(1).max(200) }),
       execute: async ({ fileId }) => {
         ownFile(fileId);

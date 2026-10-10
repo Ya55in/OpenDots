@@ -5,7 +5,7 @@ import { StorageDialog } from './StorageDialog';
 interface PreviewInfo {
   pageCount: number;
   warnings: string[];
-  review?: { pages: number; observations: string[] };
+  review?: { pages: number; observations: string[]; referenceDigest?: string };
 }
 export function DocumentPreviewButton({
   spaceId,
@@ -136,7 +136,7 @@ function Preview({
           <details className="document-preview-review">
             <summary>
               {info.review
-                ? `Visual review · ${info.review.pages} pages inspected`
+                ? `${info.review.referenceDigest ? 'Template comparison' : 'Visual review'} · ${info.review.pages} pages inspected`
                 : 'Visual review pending'}
             </summary>
             {info.review ? (

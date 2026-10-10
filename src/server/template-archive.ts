@@ -7,6 +7,7 @@ export async function archiveWordFiles(
   id: string,
   query = '',
   selected?: string,
+  extension: 'docx' | 'pptx' = 'docx',
 ): Promise<{ entries: string[]; data?: Buffer }> {
   const record = store.require(space, id);
   if (!record.complete) throw new Error('Archive is not verified.');
@@ -68,17 +69,21 @@ export async function archiveWordFiles(
           if (++count > 50000)
             return done(new Error('Archive contains too many files.'));
           if (
-            /\.docx$/i.test(entry.fileName) &&
+            entry.fileName.toLowerCase().endsWith('.' + extension) &&
             entry.fileName.toLowerCase().includes(query.toLowerCase()) &&
             entries.length < 100
           )
             entries.push(entry.fileName);
           if (selected && selected === entry.fileName) {
             if (
-              !/\.docx$/i.test(selected) ||
+              !selected.toLowerCase().endsWith('.' + extension) ||
               entry.uncompressedSize > 25 * 1024 * 1024
             )
-              return done(new Error('Select a DOCX template under 25 MB.'));
+              return done(
+                new Error(
+                  `Select a ${extension.toUpperCase()} template under 25 MB.`,
+                ),
+              );
             zip.openReadStream(entry, (error, stream) => {
               if (error) return done(error);
               const buffers: Buffer[] = [];

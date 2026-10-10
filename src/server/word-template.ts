@@ -15,11 +15,14 @@ function parse(xml: string) {
     onError: (level, message) => {
       if (level !== 'warning') throw new Error(message);
     },
-  }).parseFromString(xml, 'application/xml');
+  }).parseFromString(xml.replace(/^\uFEFF/, ''), 'application/xml');
 }
 const nodes = (el: Element, name: string) =>
   Array.from(el.getElementsByTagNameNS(W, name));
-export async function openWord(data: Buffer) {
+export async function openOffice(
+  data: Buffer,
+  kind: 'word' | 'presentation' = 'word',
+) {
   if (data.length > 25 * 1024 * 1024)
     throw new Error('Word template exceeds 25 MB.');
   // Check advertised sizes before inflating to protect the process from ZIP bombs.
@@ -47,8 +50,10 @@ export async function openWord(data: Buffer) {
     }),
   );
   const zip = await JSZip.loadAsync(data, { checkCRC32: true });
-  if (!zip.file('word/document.xml'))
-    throw new Error('An original .docx Word file is required.');
+  if (!zip.file(kind === 'word' ? 'word/document.xml' : 'ppt/presentation.xml'))
+    throw new Error(
+      `An original ${kind === 'word' ? 'DOCX' : 'PPTX'} file is required.`,
+    );
   for (const f of Object.values(zip.files)) {
     if (
       /vbaProject|embeddings\/|_xmlsignatures|activeX\/|altChunk/i.test(f.name)
@@ -84,6 +89,7 @@ export async function openWord(data: Buffer) {
   }
   return zip;
 }
+export const openWord = (data: Buffer) => openOffice(data);
 export async function inspectWord(data: Buffer) {
   const zip = await openWord(data);
   const paragraphs: { part: string; paragraph: number; text: string }[] = [];
