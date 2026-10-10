@@ -176,7 +176,6 @@ export async function reviewPreview(
                 provider: { require_parameters: true, data_collection: 'deny' },
               }
             : {}),
-          temperature: 0,
           max_tokens: 1800,
           messages: [
             {
