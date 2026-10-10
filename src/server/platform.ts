@@ -1,3 +1,4 @@
+import { FileService } from './file-service.js';
 import { ComputerService } from './computer-service.js';
 import { ConnectionService } from './connections.js';
 import { PageService } from './page-service.js';
@@ -26,6 +27,7 @@ export class Platform {
   private channelStartupFailed = false;
   readonly setupTelemetry: SetupTelemetry;
   readonly pages: PageService;
+  readonly files: FileService;
   readonly computers: ComputerService;
   readonly connections: ConnectionService;
   readonly intelligence?: CopilotKitIntelligence;
@@ -36,6 +38,7 @@ export class Platform {
     readonly config: PlatformConfig,
   ) {
     this.setupTelemetry = new SetupTelemetry(store);
+    this.files = new FileService(workspace, config.ownerToken);
     this.computers = new ComputerService(
       workspace,
       config,

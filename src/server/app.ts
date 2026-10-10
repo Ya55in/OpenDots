@@ -1,3 +1,4 @@
+import { fileRoutes, driveCallbackRoutes } from './file-routes.js';
 import { computerRoutes } from './computer-routes.js';
 import { connectionRoutes } from './connection-routes.js';
 import { Hono } from 'hono';
@@ -28,6 +29,7 @@ export function createApp({
   platform,
 }: AppOptions) {
   const app = new Hono();
+  if (platform) app.route('/storage', driveCallbackRoutes(platform.files));
   app.use(
     '/api/*',
     bodyLimit({
@@ -90,6 +92,7 @@ export function createApp({
       return c.json({ error: 'Use application/json.' }, 415);
     await next();
   });
+  if (platform) app.route('/api', fileRoutes(platform.files));
   if (platform) app.route('/api', computerRoutes(platform.computers));
   if (platform)
     app.route(

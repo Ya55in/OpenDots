@@ -1,3 +1,4 @@
+import { displayFileMessage } from './file-message';
 import { openPageLink } from './page-navigation';
 import { Fragment, type ReactNode } from 'react';
 import { PhoneOff } from 'lucide-react';
@@ -83,7 +84,9 @@ export function ChatTranscript({
                   ),
                 }}
               >
-                {String(message.content)}
+                {message.role === 'user'
+                  ? displayFileMessage(message.content)
+                  : message.content}
               </ReactMarkdown>
             </div>
           )}

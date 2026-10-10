@@ -1,3 +1,4 @@
+import { FileStore } from './file-store.js';
 import { KnowledgeStore } from './knowledge.js';
 import { RoutingStore } from './routing-store.js';
 import { ComputerStore } from './computer-store.js';
@@ -13,6 +14,7 @@ export class WorkspaceStore {
   private db: DatabaseSync;
   readonly pages: Pages;
   readonly knowledge: KnowledgeStore;
+  readonly files: FileStore;
   readonly routing: RoutingStore;
   readonly computers: ComputerStore;
   readonly connections: ConnectionStore;
@@ -56,6 +58,7 @@ export class WorkspaceStore {
         COMMIT;`);
     }
     this.knowledge = new KnowledgeStore(this.db);
+    this.files = new FileStore(this.db);
     this.routing = new RoutingStore(this.db);
     this.computers = new ComputerStore(this.db);
     this.connections = new ConnectionStore(this.db);

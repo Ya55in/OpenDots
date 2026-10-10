@@ -1,3 +1,4 @@
+import { SpaceStorage } from './SpaceStorage';
 import { mergePageSnapshot } from './page-snapshots';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Page } from '../server/pages';
@@ -104,12 +105,19 @@ export function SpaceWorkspace({
         </div>
       )}
       {!pageId ? (
-        <SpaceLibrary
-          space={space}
-          pages={pages}
-          onPage={onPage}
-          onNew={() => void create(null)}
-        />
+        <>
+          <SpaceStorage
+            key={space.id}
+            space={space}
+            dots={workspace.dots.filter((d) => d.spaceIds.includes(space.id))}
+          />
+          <SpaceLibrary
+            space={space}
+            pages={pages}
+            onPage={onPage}
+            onNew={() => void create(null)}
+          />
+        </>
       ) : page ? (
         <div className="space-writing-layout">
           {outline && (
