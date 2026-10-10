@@ -215,6 +215,9 @@ describe('original Word templates', () => {
       });
       expect(fetch).toHaveBeenCalledTimes(2);
       expect(String(fetch.mock.calls[0][1]?.body)).toContain('data_collection');
+      expect(
+        JSON.parse(String(fetch.mock.calls[0][1]?.body)),
+      ).not.toHaveProperty('temperature');
       expect(result.review?.pages).toBe(4);
       expect(String(fetch.mock.calls[0][1]?.body)).toContain(
         'data:image/png;base64,image1',
