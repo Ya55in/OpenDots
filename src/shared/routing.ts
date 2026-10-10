@@ -1,5 +1,6 @@
 export type RoutingMode = 'auto' | 'economy' | 'quality' | 'manual';
-export type RoutingTier = 'routine' | 'reasoning' | 'expert';
+export type RoutingTier =
+  'routine' | 'standard' | 'reasoning' | 'complex' | 'expert';
 export interface RoutingPreference {
   mode: RoutingMode;
   model?: string;
@@ -16,6 +17,10 @@ export interface RoutingStatus {
   jevConfigured: boolean;
   models: { id: string; tier: RoutingTier }[];
   dailyTurnLimit: number;
+  dailyUsd?: number;
+  turnUsd?: number;
+  dotDailyUsd?: number;
+  spending?: { charged: number; reserved: number; calls: number };
   preference?: RoutingPreference;
   lastDecision?: RoutingDecision | null;
 }

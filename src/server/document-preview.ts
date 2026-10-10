@@ -149,13 +149,16 @@ export async function renderPreview(
 }
 export async function reviewPreview(
   preview: DocumentPreview,
-  config: Pick<PlatformConfig, 'apiKey' | 'baseUrl' | 'model' | 'router'>,
+  config: Pick<
+    PlatformConfig,
+    'apiKey' | 'baseUrl' | 'model' | 'router' | 'modelFetch'
+  >,
   signal?: AbortSignal,
   options: { purpose?: 'reference'; reference?: DocumentPreview } = {},
 ) {
   const model =
+    config.router?.reviewModel ||
     process.env.DOCUMENT_REVIEW_MODEL ||
-    config.router?.models.reasoning ||
     config.model;
   if (!model || !config.apiKey)
     throw new Error(
@@ -169,7 +172,7 @@ export async function reviewPreview(
   const observations: string[] = [];
   for (let start = 0; start < preview.pages.length; start += 3) {
     signal?.throwIfAborted();
-    const response = await fetch(
+    const response = await (config.modelFetch ?? fetch)(
       config.baseUrl.replace(/\/$/, '') + '/chat/completions',
       {
         method: 'POST',

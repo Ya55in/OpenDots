@@ -41,7 +41,7 @@ it('manual pins override automatic risk classification and never call Jev', asyn
       .success,
   ).toBe(false);
 });
-it('routes technical and pricing work to expert without sending it to Jev', async () => {
+it('routes technical and pricing work to inexpensive reasoning without sending it to Jev', async () => {
   const network = vi.spyOn(globalThis, 'fetch');
   for (const text of [
     'Vérifier le dimensionnement PoE',
@@ -55,11 +55,11 @@ it('routes technical and pricing work to expert without sending it to Jev', asyn
       'vyanis-hiba',
       new AbortController().signal,
     );
-    expect(result.tier).toBe('expert');
+    expect(result.tier).toBe('reasoning');
   }
   expect(network).not.toHaveBeenCalled();
 });
-it('Jev chooses within the agent floor; uncertainty and failures use conservative defaults', async () => {
+it('Jev cannot promote to premium; uncertainty stays in the inexpensive tiers', async () => {
   const network = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
     new Response(
       JSON.stringify({
@@ -79,7 +79,7 @@ it('Jev chooses within the agent floor; uncertainty and failures use conservativ
         new AbortController().signal,
       )
     ).tier,
-  ).toBe('reasoning');
+  ).toBe('routine');
   const body = JSON.parse(String(network.mock.calls[0][1]?.body));
   expect(body.questions.tier.type).toBe('choice');
   expect(String(network.mock.calls[0][0])).toBe(
@@ -104,7 +104,7 @@ it('Jev chooses within the agent floor; uncertainty and failures use conservativ
         new AbortController().signal,
       )
     ).tier,
-  ).toBe('reasoning');
+  ).toBe('standard');
   network.mockRejectedValue(new Error('provider failure'));
   expect(
     (
@@ -116,7 +116,7 @@ it('Jev chooses within the agent floor; uncertainty and failures use conservativ
         new AbortController().signal,
       )
     ).tier,
-  ).toBe('expert');
+  ).toBe('standard');
 });
 it('aborted routing does not fall through into model execution', async () => {
   const controller = new AbortController();
@@ -209,11 +209,13 @@ it('runs the pinned model through the real adapter and records routing without c
     );
     const body = JSON.parse(String(network.mock.calls[0][1]?.body));
     expect(body.model).toBe(router.models.expert);
-    expect(body.max_tokens).toBe(32000);
-    expect(body.provider).toEqual({
-      require_parameters: true,
-      data_collection: 'deny',
-    });
+    expect(body.max_tokens).toBe(8000);
+    expect(body.provider).toEqual(
+      expect.objectContaining({
+        require_parameters: true,
+        data_collection: 'deny',
+      }),
+    );
     expect(body.models).toBeUndefined();
     expect(ws.routing.lastDecision('thread')?.source).toBe('manual');
   } finally {

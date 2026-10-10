@@ -1,35 +1,41 @@
-# Business agents and model routing
+# Business agents and cost-aware model routing
 
-`npm start` loads the non-secret defaults in `deployment/business.env`, enabling the native router and business-agent preparation for this fork. Coolify runtime variables take precedence; set `MODEL_ROUTER_ENABLED=false` or `PREPARE_BUSINESS_AGENTS=false` to disable either feature. Add `OPENROUTER_API_KEY`, `TYPESAFE_API_KEY` (optional), and the existing required `CPK_INTELLIGENCE_API_KEY`. Keep the owner token, owner ID and persistent SQLite volume unchanged. Never commit real keys or put them in frontend/build variables.
+`npm start` loads non-secret `deployment/business.env` defaults. Runtime variables take precedence. Keys (`OPENROUTER_API_KEY`, optional `TYPESAFE_API_KEY`, existing `CPK_INTELLIGENCE_API_KEY`) stay on the server. Preserve the owner identity/token and SQLite volume. This is a single-owner application; Spaces separate agent access, not human accounts.
 
-This deployment uses a native OpenDots policy router and OpenRouter directly. LiteLLM/PostgreSQL are not required or installed. A future gateway can add accounting and broader provider support; do not claim that its budget enforcement exists here.
+HIBA, VIGON Presales and VIGON Sales retain separate Spaces, migrated knowledge and owner instructions. Routing depends on the current task, never a permanently expensive agent profile. A greeting in Presales uses the same inexpensive path as a greeting in Sales. Existing permissions and publication requirements remain unchanged.
 
-## Agents
+## Seven stages
 
-| Agent                  | Space            | Automatic routing                                                                                 |
-| ---------------------- | ---------------- | ------------------------------------------------------------------------------------------------- |
-| VYANIS Assistant HIBA  | VYANIS · HIBA    | Routine drafting → routine; proposals, strategy → reasoning; commercial risk → expert             |
-| VIGON Presale engineer | VIGON · Presales | Reasoning minimum; uncertain/technical/compliance/pricing work → expert                           |
-| VIGON Sales Assistant  | VIGON · Sales    | Routine correspondence → routine; qualification/proposals → reasoning; pricing/contracts → expert |
+These are selection stages, not seven paid calls for every request.
 
-Startup creates these only once and preserves owner edits. Global memory is disabled on these profiles because upstream OpenDots memories are shared. Use authorized Space pages for dated, sourced context. Each agent initially has access only to its own Space. Spaces separate agent tool access, not human accounts: this remains a single-owner application.
+| Stage | Role                                                       | Default                     |
+| ----- | ---------------------------------------------------------- | --------------------------- |
+| 0     | Deterministic validation, routing rules and file rendering | Local code; no model charge |
+| 1     | Classification, triage and sorting                         | Jev typed decisions         |
+| 2     | Short daily drafting, translation, summaries               | Qwen3.8 Flash               |
+| 3     | Ordinary tool use and research                             | GLM-5.3 Flash               |
+| 4     | Multi-step analysis and document plans                     | DeepSeek V4 Pro             |
+| 5     | Explicit premium reasoning choice                          | GPT-6.1 Sol                 |
+| 6     | Explicit expert/second-opinion choice                      | Claude Sonnet 5.5           |
 
-Reusable instructions have been adapted from the owner's established workflows. Old chats, private client documents, local scripts, connectors, learning containers, computer runtimes and browser sessions are **not** automatically migrated. Upload only the reviewed reference materials each agent needs into its Space. VIGON buying prices and margins belong to the internal Presales Space, never client-facing packs or Sales by default. Commercial publication and sending require explicit approval.
+Auto uses stages 2–4, preceded only when necessary by Jev. Local simple-task rules bypass Jev. Ambiguous tasks default to GLM, not Claude. Technical/document tasks use inexpensive reasoning. Jev receives at most 4,000 characters, needs confidence >=0.9, and cannot select a premium tier. Invalid, unavailable or uncertain Jev responses retain the bounded local fallback. A routing judgment never grants tools or permissions. Premium mode explicitly chooses GPT; Specific model can pin any approved model. There is no silent model fallback or automatic premium escalation.
 
-## Routing behavior
+`Classify directly with Jev` in each chat accepts 1–20 short items and 2–8 categories. It calls Jev once without an LLM, groups the returned suggestions, and flags confidence below 0.9. `classify_with_jev` is also available to agents for natural-language triage requests. Neither path executes actions based on classifications.
 
-Every conversation exposes Auto, Economical, Best quality and Specific model. Preferences are persisted server-side. Manual model IDs are restricted to the server-configured allowlist. Manual selection overrides Auto, and provider failure never silently changes models. Switch modes/models explicitly to retry. OpenRouter can choose a different hosting provider for the same model; requests require parameter support and disallow provider data collection.
+The five model IDs and input/vision/tool support were checked against the [OpenRouter catalog](https://openrouter.ai/api/v1/models) on 2026-10-10. Quality on these business tasks has not yet been evaluated with paid production calls. Price ceilings in `modelRates` must be reviewed when adding a model. All requests retain the no-data-collection policy and required parameter support, prefer cheaper providers, and enforce provider `max_price`. Missing compatible providers cause a visible failure; protections are not relaxed.
 
-Auto evaluates the recent user requests. Deterministic high-consequence rules run first. Jev receives at most 6,000 characters and the profile identifier for ambiguous work; confidence below 0.8, timeout or malformed output falls back to the conservative agent default. Presales cannot be downgraded below reasoning in Auto. Jev is a classifier, not the chat model and never grants tools or permissions.
+Use `ROUTER_V2_MODEL_ROUTINE`, `STANDARD`, `REASONING`, `COMPLEX`, `EXPERT` and `ROUTER_V2_REVIEW_MODEL`. Legacy `ROUTER_MODEL_*` and, when routing is enabled, `DOCUMENT_REVIEW_MODEL` are intentionally ignored so old Claude defaults cannot silently defeat the cheaper policy. Opus is removed from the default allowlist; old manual pins require a new choice.
 
-Initial model IDs were checked against OpenRouter's catalog on 2026-10-10: routine `google/gemini-3.8-flash`, reasoning `anthropic/claude-sonnet-5.5`, expert `anthropic/claude-opus-5.5`. These are initial candidates, not an accuracy guarantee; benchmark on reviewed HIBA/presales/sales examples before relying on outputs. Override using `ROUTER_MODEL_ROUTINE`, `ROUTER_MODEL_REASONING`, `ROUTER_MODEL_EXPERT`.
+## Cost controls
 
-The UI reports the last **selected** model and the reason, not a provider-confirmed receipt or billing record. Text/compute routing also applies to scheduled and voice-compute turns through DotAgent. Realtime speech uses the separate voice provider.
+Initial defaults: $1/workspace/day, $0.50/Dot/day, $0.20/request, 12 provider calls/request and 100 turn attempts/Dot/day, in UTC. Configure `ROUTER_DAILY_USD`, `ROUTER_DOT_DAILY_USD`, `ROUTER_TURN_USD`, `ROUTER_MAX_CALLS`, `ROUTER_DAILY_TURN_LIMIT`. A request encompasses all its model iterations, Jev routing and document visual-review calls. Manual premium choices cannot bypass the budgets. SDK retries are disabled.
 
-## Limits and validation
+SQLite atomically reserves a conservative maximum before each provider call. Provider-reported `usage.cost` settles each reservation once; absent usage, aborted streams and uncertain failures retain their reservation rather than counting as free. UTF-8 size plus framing and image allowances bound estimates; provider price ceilings prevent a more expensive host from invalidating them. These controls are intentionally conservative and can reject a request below its eventual billed cost. Provider invoices remain authoritative; use a provider-side key cap as an independent backstop. Historical charges before deployment are not backfilled into the local ledger. External search, computer hosting, CopilotKit services and realtime speech fees are outside this model ledger.
 
-`ROUTER_DAILY_TURN_LIMIT` defaults to 100 attempted turns per agent per UTC day, persisted atomically in SQLite. Failed attempts count. Per model call output limits: routine 3,000, reasoning 6,000, expert 10,000 tokens. Existing turn time and tool-loop limits remain. These are operational limits, **not currency budgets**. Set a spending limit on the OpenRouter key and TypeSafe account before production usage. Input tokens, repeated tool calls, retries and Jev usage still incur provider costs. Native accounting, billing alerts and automatic retry on another model are not implemented.
+The UI shows reported and reserved/unconfirmed amounts separately. The recorded selected model is a routing decision, not proof of a completed provider response. Budget errors stop before the next provider request; existing saved files remain available.
 
-Deploy, then verify Settings shows the configured providers. Create a conversation and test Auto, explicit model pinning across reload, a tool-assisted draft, unavailable-provider errors and cross-Space denial using non-sensitive examples. Configuration presence alone does not verify provider authentication.
+Only four recent complete user-turn groups (soft 90,000-character limit) enter model context. Tool calls remain with their results. Older messages remain saved; agents must retrieve missing facts from authorized history/knowledge. Any single model context above 200,000 text bytes is refused rather than silently truncated. Normal response ceilings are 2k/4k/8k by tier; document plans get 20k. Normal agent loops allow 3–6 rounds; document work up to 12, within the same dollar budget and ten-minute deadline.
 
-References: [TypeSafe API](https://docs.typesafe.ai/api), [OpenRouter API](https://openrouter.ai/docs/api_reference/overview), [OpenRouter model catalog](https://openrouter.ai/api/v1/models).
+Document visual review defaults to Qwen3.8 Flash and remains source-image based. Changing the model does not waive rendering, template preservation, ownership checks or honest review status.
+
+References: [TypeSafe typed decisions](https://docs.typesafe.ai/introduction), [OpenRouter provider price ceilings](https://openrouter.ai/docs/guides/routing/provider-selection#max-price), [OpenAI model selection](https://developers.openai.com/api/docs/models).

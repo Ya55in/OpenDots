@@ -1,3 +1,4 @@
+import { JevDecisions } from './JevDecisions';
 import { useEffect, useState } from 'react';
 import { api } from './api';
 import type {
@@ -75,9 +76,9 @@ export function ModelRouting({
                 );
               }}
             >
-              <option value="auto">Auto · recommended</option>
+              <option value="auto">Auto · cheaper first</option>
               <option value="economy">Economical</option>
-              <option value="quality">Best quality</option>
+              <option value="quality">Premium · explicit choice</option>
               <option value="manual">Specific model</option>
             </select>
           </label>
@@ -94,7 +95,7 @@ export function ModelRouting({
               >
                 {status.models.map((model) => (
                   <option key={model.tier} value={model.id}>
-                    {model.id}
+                    {model.tier}: {model.id}
                   </option>
                 ))}
               </select>
@@ -102,7 +103,7 @@ export function ModelRouting({
           )}
           <small>
             {preference.mode === 'auto'
-              ? 'Chooses per turn using the task and agent profile.'
+              ? 'Local rules → Jev → Qwen → GLM → DeepSeek. Premium models require your explicit choice.'
               : 'Your choice stays saved for this conversation. Change it to retry with a different model.'}
           </small>
           {status.lastDecision && (
@@ -127,9 +128,17 @@ export function ModelRouting({
         {status.jevConfigured
           ? 'configured'
           : 'not configured · agent rules active'}
-        . Limit: {status.dailyTurnLimit} turn attempts per agent/day (UTC). This
-        is not a currency budget.
+        . {status.dailyTurnLimit} turn attempts per agent/day (UTC). AI budget:
+        ${status.dailyUsd}/day workspace · ${status.dotDailyUsd}/day per Dot · $
+        {status.turnUsd}/request. Today since cost tracking began: $
+        {status.spending?.charged.toFixed(4) ?? '0'} reported + $
+        {status.spending?.reserved.toFixed(4) ?? '0'} reserved/unconfirmed.{' '}
+        Includes model calls, Jev and document visual review; external service
+        fees are separate.
       </small>
+      {threadId && status.jevConfigured && (
+        <JevDecisions threadId={threadId} disabled={running || saving} />
+      )}
       {error && <p role="alert">{error}</p>}
     </div>
   );

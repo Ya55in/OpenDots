@@ -1,3 +1,6 @@
+import { randomUUID } from 'node:crypto';
+import { budgetFetch } from './model-budget.js';
+import { decisionInput, decideWithJev } from './jev-decisions.js';
 import { knowledgeRoutes } from './knowledge-routes.js';
 import { routingPreferenceSchema } from './model-router.js';
 import { prepareBusinessProfiles } from './business-profiles.js';
@@ -63,6 +66,10 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
         }))
       : [],
     dailyTurnLimit: platform.config.router?.dailyTurnLimit ?? 0,
+    dailyUsd: platform.config.router?.dailyUsd,
+    turnUsd: platform.config.router?.turnUsd,
+    dotDailyUsd: platform.config.router?.dotDailyUsd,
+    spending: platform.workspace.routing.spending(),
   });
   app.get('/routing', (c) => c.json(routingStatus()));
   app.post('/business-agents/prepare', (c) => {
@@ -103,6 +110,39 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
       preference: parsed.data,
       lastDecision: platform.workspace.routing.lastDecision(thread.id),
     });
+  });
+  app.post('/conversations/:id/decisions', async (c) => {
+    const thread = platform.workspace.requireThread(c.req.param('id'));
+    const config = platform.config.router;
+    if (!config?.jevKey)
+      return c.json({ error: 'Jev is not configured.' }, 409);
+    if (platform.store.settings().paused)
+      return c.json({ error: 'All Dots are paused.' }, 409);
+    const parsed = decisionInput.safeParse(
+      await c.req.json().catch(() => null),
+    );
+    if (!parsed.success)
+      return c.json(
+        { error: 'Provide 1–20 items and 2–8 distinct categories.' },
+        400,
+      );
+    const transport = budgetFetch(platform.workspace.routing, config, {
+      dotId: thread.dotId,
+      threadId: thread.id,
+      runId: randomUUID(),
+    });
+    try {
+      return c.json(
+        await decideWithJev(config, parsed.data, c.req.raw.signal, transport),
+      );
+    } catch (e) {
+      return c.json(
+        {
+          error: e instanceof Error ? e.message : 'Jev classification failed.',
+        },
+        400,
+      );
+    }
   });
   app.post('/spaces', async (c) => {
     const data = z
