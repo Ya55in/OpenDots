@@ -343,8 +343,11 @@ it('reports a turn that hits the time limit as a RUN_ERROR instead of ending sil
           );
         }),
     );
+    const abort = vi.spyOn(f.agent, 'abortRun');
     const finished = lastValueFrom(f.agent.run(f.input).pipe(toArray()));
     await vi.advanceTimersByTimeAsync(90_001);
+    expect(abort).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(510_000);
     const events = await finished;
     expect(events).toEqual(
       expect.arrayContaining([

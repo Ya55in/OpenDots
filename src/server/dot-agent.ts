@@ -34,7 +34,9 @@ const channelError = () => ({
   message:
     'OpenDots could not complete this request. Please check the app and try again.',
 });
-const TURN_TIME_LIMIT_MS = 90_000;
+// Template discovery, rendering and visual review need several model/tool rounds.
+// Keep a finite deadline; explicit cancellation and access revocation still abort.
+const TURN_TIME_LIMIT_MS = 600_000;
 export class DotAgent extends AbstractAgent {
   private inner?: BuiltInAgent;
   private controller?: AbortController;

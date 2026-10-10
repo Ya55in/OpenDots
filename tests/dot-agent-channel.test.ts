@@ -241,7 +241,7 @@ it.each(['abort', 'timeout'])(
         messageId: 'answer',
         delta: 'private answer',
       });
-      if (reason === 'timeout') await vi.advanceTimersByTimeAsync(90000);
+      if (reason === 'timeout') await vi.advanceTimersByTimeAsync(600000);
       else f.agent.abortRun();
       stream.next({
         type: EventType.RUN_FINISHED,
