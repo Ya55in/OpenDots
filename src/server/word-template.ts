@@ -175,7 +175,9 @@ export async function editWord(data: Buffer, edits: WordEdit[]) {
         offset = stop;
       }
     }
-    zip.file(part, new XMLSerializer().serializeToString(doc));
+    zip.file(part, new XMLSerializer().serializeToString(doc), {
+      date: file.date,
+    });
     changed.add(part);
   }
   return {
