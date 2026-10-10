@@ -1,3 +1,6 @@
+import { routingPreferenceSchema } from './model-router.js';
+import { prepareBusinessProfiles } from './business-profiles.js';
+import type { RoutingTier } from '../shared/routing.js';
 import { setupInputSchema } from './setup-telemetry.js';
 import { pageRoutes } from './page-routes.js';
 import { Hono } from 'hono';
@@ -48,6 +51,57 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
       calls: platform.workspace.calls(),
     }),
   );
+  const routingStatus = () => ({
+    enabled: !!platform.config.router,
+    jevConfigured: !!platform.config.router?.jevKey,
+    models: platform.config.router
+      ? Object.entries(platform.config.router.models).map(([tier, id]) => ({
+          id,
+          tier: tier as RoutingTier,
+        }))
+      : [],
+    dailyTurnLimit: platform.config.router?.dailyTurnLimit ?? 0,
+  });
+  app.get('/routing', (c) => c.json(routingStatus()));
+  app.post('/business-agents/prepare', (c) => {
+    prepareBusinessProfiles(platform.workspace);
+    return c.json({ ok: true });
+  });
+  app.get('/conversations/:id/routing', (c) => {
+    const thread = platform.workspace.requireThread(c.req.param('id'));
+    return c.json({
+      ...routingStatus(),
+      preference: platform.workspace.routing.preference(thread.id),
+      lastDecision: platform.workspace.routing.lastDecision(thread.id),
+    });
+  });
+  app.put('/conversations/:id/routing', async (c) => {
+    const thread = platform.workspace.requireThread(c.req.param('id'));
+    if (!platform.config.router)
+      return c.json(
+        { error: 'Model routing is not enabled on the server.' },
+        409,
+      );
+    const parsed = routingPreferenceSchema.safeParse(
+      await c.req.json().catch(() => null),
+    );
+    if (!parsed.success)
+      return c.json(
+        { error: 'Choose a routing mode and an allowed model.' },
+        400,
+      );
+    if (
+      parsed.data.mode === 'manual' &&
+      !Object.values(platform.config.router.models).includes(parsed.data.model)
+    )
+      return c.json({ error: 'This model is not allowed by the server.' }, 400);
+    platform.workspace.routing.setPreference(thread.id, parsed.data);
+    return c.json({
+      ...routingStatus(),
+      preference: parsed.data,
+      lastDecision: platform.workspace.routing.lastDecision(thread.id),
+    });
+  });
   app.post('/spaces', async (c) => {
     const data = z
       .object({

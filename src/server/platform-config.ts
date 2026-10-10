@@ -1,3 +1,4 @@
+import type { RouterConfig } from './model-router.js';
 import type { WebConfig } from './parallel.js';
 import type { SetupStatus } from '../shared/types.js';
 
@@ -35,6 +36,7 @@ function firstNonEmptyEnvValue(
 }
 
 export interface PlatformConfig extends WebConfig {
+  router?: RouterConfig;
   intelligenceKey?: string;
   intelligenceApiUrl?: string;
   intelligenceWsUrl?: string;
@@ -64,7 +66,7 @@ export function setupStatus(
 ): SetupStatus {
   const missing = [
     !config.intelligenceKey && INTELLIGENCE_KEY_MISSING_LABEL,
-    !config.apiKey && 'OPENAI_API_KEY',
+    !config.apiKey && (config.router ? 'OPENROUTER_API_KEY' : 'OPENAI_API_KEY'),
     !config.model && 'OPENAI_MODEL',
   ].filter((item): item is string => !!item);
   const declaredSlack = !!(

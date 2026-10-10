@@ -4280,3 +4280,35 @@ h3 {
   overflow-wrap: anywhere;
   font-size: 11px;
 }
+
+.model-routing {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.model-routing-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+}
+.model-routing-controls label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.model-routing select {
+  max-width: 100%;
+  padding: 6px;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+}
+.model-routing small {
+  display: block;
+  opacity: 0.75;
+}
+.model-routing p {
+  margin: 4px 0;
+}

@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "concurrently -k \"cross-env NODE_ENV=development node --env-file-if-exists=.env --import tsx --watch src/server/index.ts\" \"vite\"",
     "build": "vite build && tsc -p tsconfig.server.json",
-    "start": "node --env-file-if-exists=.env dist/server/server/index.js",
+    "start": "node --env-file-if-exists=deployment/business.env --env-file-if-exists=.env dist/server/server/index.js",
     "browser": "node --env-file-if-exists=.env --import tsx src/browser/index.ts",
     "browser:start": "node --env-file-if-exists=.env dist/server/browser/index.js",
     "test": "cross-env DO_NOT_TRACK=1 vitest run",
