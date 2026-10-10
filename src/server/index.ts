@@ -1,3 +1,5 @@
+import { routerConfigFromEnv } from './model-router.js';
+import { prepareBusinessProfiles } from './business-profiles.js';
 import { webSearchProvider } from './parallel.js';
 import { createShutdown } from './shutdown.js';
 import { reportChannelFailure, safeFailure } from './slack-channel.js';
@@ -30,13 +32,19 @@ const workspace = new WorkspaceStore(
   database,
   process.env.OWNER_ID ?? 'opendots-owner',
 );
+const router = routerConfigFromEnv(process.env);
+if (process.env.PREPARE_BUSINESS_AGENTS === 'true')
+  prepareBusinessProfiles(workspace);
 const config: PlatformConfig = {
+  router,
   intelligenceKey: intelligenceApiKeyFromEnv(process.env),
   intelligenceApiUrl: process.env.INTELLIGENCE_API_URL || undefined,
   intelligenceWsUrl: intelligenceWsUrlFromEnv(process.env),
-  apiKey: process.env.OPENAI_API_KEY,
-  model: process.env.OPENAI_MODEL,
-  baseUrl: process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1',
+  apiKey: router ? process.env.OPENROUTER_API_KEY : process.env.OPENAI_API_KEY,
+  model: router?.models.reasoning ?? process.env.OPENAI_MODEL,
+  baseUrl: router
+    ? 'https://openrouter.ai/api/v1'
+    : (process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1'),
   webSearchProvider: webSearchProvider(process.env.WEB_SEARCH_PROVIDER),
   parallelApiKey: process.env.PARALLEL_API_KEY,
   browserUrl: process.env.BROWSER_URL,

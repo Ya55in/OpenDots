@@ -1,3 +1,4 @@
+import { ModelRouting } from './ModelRouting';
 import { PageReviewCard } from './PageReviewCard';
 import { pageReviewSchema, pageReviewTool } from '../shared/page-review';
 import {
@@ -318,6 +319,7 @@ export function Chat({
           </button>
         </div>
       </header>
+      <ModelRouting threadId={thread.id} running={running} />
       {pageContext && (
         <div className="page-chat-context">
           Working on{' '}

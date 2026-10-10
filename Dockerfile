@@ -11,9 +11,10 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev && mkdir -p /data && chown node:node /data
 COPY --from=build /app/dist ./dist
+COPY --from=build /app/deployment/business.env ./deployment/business.env
 USER node
 EXPOSE 4310
-CMD ["node", "dist/server/server/index.js"]
+CMD ["npm", "start"]
 
 FROM node:24-bookworm-slim AS browser
 ENV NODE_ENV=production BROWSER_HOST=0.0.0.0 BROWSER_PORT=4311 PLAYWRIGHT_BROWSERS_PATH=/ms-playwright

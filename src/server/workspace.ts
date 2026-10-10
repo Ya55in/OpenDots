@@ -1,3 +1,4 @@
+import { RoutingStore } from './routing-store.js';
 import { ComputerStore } from './computer-store.js';
 import { ConnectionStore } from './connection-store.js';
 import { Pages } from './pages.js';
@@ -10,6 +11,7 @@ import type { CallReceipt, Conversation, Dot, Space } from '../shared/types.js';
 export class WorkspaceStore {
   private db: DatabaseSync;
   readonly pages: Pages;
+  readonly routing: RoutingStore;
   readonly computers: ComputerStore;
   readonly connections: ConnectionStore;
   constructor(
@@ -51,6 +53,7 @@ export class WorkspaceStore {
         INSERT INTO dot_spaces SELECT id, spaceId FROM dots;
         COMMIT;`);
     }
+    this.routing = new RoutingStore(this.db);
     this.computers = new ComputerStore(this.db);
     this.connections = new ConnectionStore(this.db);
     this.pages = new Pages(this.db, (id) =>

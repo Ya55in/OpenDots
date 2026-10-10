@@ -1,3 +1,4 @@
+import { ModelRouting } from './ModelRouting';
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import type { Dot, Memory, State, WorkspaceState } from '../shared/types';
@@ -398,6 +399,7 @@ export function WorkspaceDialog({
           )}
           {dialog.type === 'settings' && (
             <div className="config-note">
+              <ModelRouting />
               <strong>Service setup</strong>
               <p>
                 {workspace.setup.missing.length ? (
