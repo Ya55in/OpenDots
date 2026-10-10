@@ -15,7 +15,10 @@ it('renders downloads from validated tool results, including after conversation 
         downloadUrl: '/api/spaces/space-id/files/doc-id/download',
       },
     ],
-    warnings: ['Images are captions only.'],
+    warnings: [
+      'Images are captions only.',
+      'Template formatting preserved. Visual review is pending: call review_document before delivery.',
+    ],
     errors: ['PPTX: Shorten the table.'],
   };
   const html = renderToStaticMarkup(
@@ -27,6 +30,7 @@ it('renders downloads from validated tool results, including after conversation 
   expect(html).toContain('Images are captions only.');
   expect(html).toContain('Shorten the table.');
   expect(html).not.toContain('Designing');
+  expect(html).not.toContain('Visual review is pending:');
 });
 it('does not report success for an empty or malformed generation result', () => {
   const html = renderToStaticMarkup(

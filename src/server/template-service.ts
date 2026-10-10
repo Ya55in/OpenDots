@@ -266,9 +266,7 @@ export function templateTools(
             `PDF/preview: ${e instanceof Error ? e.message : 'Rendering failed.'}`,
           );
         }
-        result.warnings.push(
-          'Template formatting preserved. Visual review is pending: call review_document before delivery.',
-        );
+        result.warnings.push('Original Word formatting preserved.');
         return result;
       },
     }),
