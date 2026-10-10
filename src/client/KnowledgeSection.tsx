@@ -123,7 +123,9 @@ export function KnowledgeSection({ spaceId }: { spaceId: string }) {
                 size = 0;
               }
             };
-            for (const doc of input.documents) {
+            for (const doc of status.documents === input.documents.length
+              ? []
+              : input.documents) {
               const bytes = new TextEncoder().encode(
                 JSON.stringify(doc),
               ).length;
@@ -132,23 +134,34 @@ export function KnowledgeSection({ spaceId }: { spaceId: string }) {
               size += bytes;
             }
             await send();
-            for (let offset = status.bytes; offset < file.size;) {
-              const bytes = new Uint8Array(
-                await file.slice(offset, offset + 524288).arrayBuffer(),
-              );
-              let binary = '';
-              for (let j = 0; j < bytes.length; j += 8192)
-                binary += String.fromCharCode(...bytes.subarray(j, j + 8192));
-              const response = await api<{ bytes: number }>(
-                `${root}/imports/${status.id}/chunks`,
-                'POST',
-                { offset, data: btoa(binary) },
-              );
-              offset = response.bytes;
-              setMessage(
-                `Uploading originals: ${((100 * offset) / file.size).toFixed(1)}% (${Math.round(offset / 1e6)} / ${Math.round(file.size / 1e6)} MB)`,
-              );
-            }
+            let cursor = status.bytes,
+              uploaded = status.bytes;
+            const workers = Array.from({ length: 8 }, async () => {
+              while (cursor < file.size) {
+                const offset = cursor;
+                cursor += 524288;
+                const bytes = new Uint8Array(
+                  await file.slice(offset, offset + 524288).arrayBuffer(),
+                );
+                let binary = '';
+                for (let j = 0; j < bytes.length; j += 8192)
+                  binary += String.fromCharCode(...bytes.subarray(j, j + 8192));
+                await api(`${root}/imports/${status.id}/chunks`, 'POST', {
+                  offset,
+                  data: btoa(binary),
+                });
+                uploaded += bytes.length;
+                setMessage(
+                  `Uploading originals: ${((100 * uploaded) / file.size).toFixed(1)}% (${Math.round(uploaded / 1e6)} / ${Math.round(file.size / 1e6)} MB)`,
+                );
+              }
+            });
+            // Let all pending requests settle before reporting a failure, so resume has a stable checkpoint.
+            const transfers = await Promise.allSettled(workers);
+            const failed = transfers.find(
+              (result) => result.status === 'rejected',
+            );
+            if (failed?.status === 'rejected') throw failed.reason;
             setMessage('Verifying archive and document checksums…');
             await api(`${root}/imports/${status.id}/complete`, 'POST', {});
             await refresh();
