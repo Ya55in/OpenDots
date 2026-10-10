@@ -1,3 +1,5 @@
+import { DocumentCard } from './DocumentCard';
+import { DocumentExport } from './DocumentExport';
 import { fileMessage } from './file-message';
 import { AttachmentDialog } from './FileBrowser';
 import type { StoredFile } from '../shared/storage';
@@ -230,7 +232,9 @@ export function Chat({
     {
       name: '*',
       render: (props: ComputerToolRenderProps) =>
-        props.name.startsWith('computer_') ? (
+        props.name === 'generate_document' ? (
+          <DocumentCard result={props.result} status={props.status} />
+        ) : props.name.startsWith('computer_') ? (
           <ComputerToolCard
             {...props}
             dotId={dot.id}
@@ -252,6 +256,7 @@ export function Chat({
           message.toolCalls?.some(
             (call) =>
               call.function.name.startsWith('computer_') ||
+              call.function.name === 'generate_document' ||
               call.function.name === pageReviewTool.name ||
               call.function.name === connectionActionTool.name,
           ))),
@@ -354,6 +359,14 @@ export function Chat({
           </div>
         )}
         <ChatTranscript
+          renderExport={(message) => (
+            <DocumentExport
+              markdown={String(message.content)}
+              dotId={dot.id}
+              spaceId={dot.spaceId}
+              threadId={thread.id}
+            />
+          )}
           messages={visible}
           calls={calls}
           renderTools={(message) => (

@@ -1,3 +1,6 @@
+import { useState } from 'react';
+import { downloadDocument, fileDownloadPath } from './document-download';
+import remarkGfm from 'remark-gfm';
 import { displayFileMessage } from './file-message';
 import { openPageLink } from './page-navigation';
 import { Fragment, type ReactNode } from 'react';
@@ -38,14 +41,22 @@ export function ChatTranscript({
   messages,
   calls,
   renderTools,
+  renderExport,
 }: {
   messages: Message[];
   calls: CallReceipt[];
   renderTools?: (message: AssistantMessage) => ReactNode;
+  renderExport?: (message: AssistantMessage) => ReactNode;
 }) {
+  const [downloadError, setDownloadError] = useState('');
   const ids = new Set(messages.map((message) => message.id));
   return (
     <>
+      {downloadError && (
+        <p className="chat-error" role="alert">
+          {downloadError}
+        </p>
+      )}
       {calls
         .filter(
           (call) => !call.anchorMessageId || !ids.has(call.anchorMessageId),
@@ -63,12 +74,20 @@ export function ChatTranscript({
                 <span className="scheduled-message-label">Scheduled</span>
               )}
               <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
                 components={{
                   img: ({ alt }) => <span>{alt}</span>,
                   a: ({ href, children }) => (
                     <a
                       onClick={(event) => {
-                        if (href?.startsWith('/#/spaces/')) {
+                        const file = fileDownloadPath(href);
+                        if (file) {
+                          event.preventDefault();
+                          setDownloadError('');
+                          void downloadDocument(file, 'Document').catch((e) =>
+                            setDownloadError(e.message),
+                          );
+                        } else if (href?.startsWith('/#/spaces/')) {
                           event.preventDefault();
                           openPageLink(href);
                         }
@@ -88,6 +107,7 @@ export function ChatTranscript({
                   ? displayFileMessage(message.content)
                   : message.content}
               </ReactMarkdown>
+              {message.role === 'assistant' && renderExport?.(message)}
             </div>
           )}
           {message.role === 'assistant' && renderTools?.(message)}

@@ -1,3 +1,5 @@
+import { documentSchema } from '../shared/documents.js';
+import { generateFiles } from './document-service.js';
 import { Hono } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import { z } from 'zod';
@@ -67,6 +69,22 @@ export function fileRoutes(service: FileService) {
   app.post('/spaces/:spaceId/storage/picker', async (c) =>
     c.json(await drive.picker(c.req.param('spaceId'))),
   );
+  app.post('/spaces/:spaceId/documents', async (c) => {
+    const { dotId, threadId, ...input } = documentSchema
+      .extend({ dotId: ident, threadId: ident.optional() })
+      .parse(await c.req.json());
+    return c.json(
+      await generateFiles(
+        service,
+        dotId,
+        c.req.param('spaceId'),
+        threadId ?? null,
+        input,
+        () => {},
+        c.req.raw.signal,
+      ),
+    );
+  });
   app.get('/spaces/:spaceId/files', (c) => {
     const dot = c.req.query('dotId');
     if (dot) service.scope(c.req.param('spaceId'), dot);
