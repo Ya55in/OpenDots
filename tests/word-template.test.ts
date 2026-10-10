@@ -56,6 +56,21 @@ describe('original Word templates', () => {
         replace: '200,00',
       },
     ]);
+    const retry = await editWord(data, [
+      {
+        part: 'word/document.xml',
+        paragraph: 0,
+        find: 'OLD-REFERENCE',
+        replace: 'NEW-REFERENCE',
+      },
+      {
+        part: 'word/document.xml',
+        paragraph: 1,
+        find: '100,00',
+        replace: '200,00',
+      },
+    ]);
+    expect(retry.data).toEqual(result.data);
     const before = await JSZip.loadAsync(data),
       after = await JSZip.loadAsync(result.data);
     expect(Object.keys(after.files)).toEqual(Object.keys(before.files));
@@ -192,8 +207,14 @@ describe('original Word templates', () => {
         apiKey: 'test',
         baseUrl: 'https://example.com/v1',
         model: 'vision',
+        router: {
+          models: { routine: 'vision', reasoning: 'vision', expert: 'vision' },
+          jevModel: 'test',
+          dailyTurnLimit: 100,
+        },
       });
       expect(fetch).toHaveBeenCalledTimes(2);
+      expect(String(fetch.mock.calls[0][1]?.body)).toContain('data_collection');
       expect(result.review?.pages).toBe(4);
       expect(String(fetch.mock.calls[0][1]?.body)).toContain(
         'data:image/png;base64,image1',
