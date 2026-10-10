@@ -1,3 +1,4 @@
+import { KnowledgeSection } from './KnowledgeSection';
 import { ModelRouting } from './ModelRouting';
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
@@ -206,7 +207,13 @@ export function WorkspaceDialog({
               <textarea
                 id="entity-text"
                 rows={4}
-                maxLength={dialog.type === 'schedule' ? 4000 : 2000}
+                maxLength={
+                  dialog.type === 'dot'
+                    ? 16000
+                    : dialog.type === 'schedule'
+                      ? 4000
+                      : 2000
+                }
                 required={dialog.type !== 'space'}
                 value={text}
                 onChange={(e) => setText(e.target.value)}
@@ -346,7 +353,10 @@ export function WorkspaceDialog({
             </fieldset>
           )}
           {dialog.type === 'dot' && dialog.dot && (
-            <ConnectionsSection dotId={dialog.dot.id} />
+            <>
+              <ConnectionsSection dotId={dialog.dot.id} />
+              <KnowledgeSection spaceId={dialog.dot.spaceId} />
+            </>
           )}
           {dialog.type === 'schedule' && (
             <>

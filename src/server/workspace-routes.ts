@@ -1,3 +1,4 @@
+import { knowledgeRoutes } from './knowledge-routes.js';
 import { routingPreferenceSchema } from './model-router.js';
 import { prepareBusinessProfiles } from './business-profiles.js';
 import type { RoutingTier } from '../shared/routing.js';
@@ -14,7 +15,7 @@ import {
 const dotSchema = z
   .object({
     name: z.string().trim().min(1).max(40),
-    instructions: z.string().trim().min(3).max(2000),
+    instructions: z.string().trim().min(3).max(16000),
     researchAllowed: z.boolean(),
     memoryAllowed: z.boolean(),
     learningContainerId: learningContainerIdSchema.optional(),
@@ -26,6 +27,7 @@ const dotSchema = z
 export function workspaceRoutes(platform: Platform, voice: VoiceService) {
   const app = new Hono();
   app.route('/', pageRoutes(platform));
+  app.route('/', knowledgeRoutes(platform));
   app.post('/setup-telemetry', async (c) => {
     const parsed = setupInputSchema.safeParse(
       await c.req.json().catch(() => null),
