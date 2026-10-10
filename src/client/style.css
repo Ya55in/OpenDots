@@ -4312,3 +4312,196 @@ h3 {
 .model-routing p {
   margin: 4px 0;
 }
+
+/* Private Space storage and conversation attachments. */
+.storage-open {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 24px 0;
+  padding: 10px 14px;
+  border: 1px solid #dcded8;
+  border-radius: 12px;
+  background: #fff;
+  color: #263b32;
+}
+.storage-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: #15221c66;
+  backdrop-filter: blur(5px);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+.storage-dialog {
+  width: min(720px, 100%);
+  max-height: 90dvh;
+  overflow: auto;
+  background: #fff;
+  color: #27362f;
+  border: 1px solid #dce4dc;
+  border-radius: 22px;
+  padding: 26px;
+  box-shadow: 0 24px 80px #0003;
+}
+.storage-dialog > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.storage-dialog h2 {
+  margin: 6px 0;
+  font-size: 24px;
+}
+.drive-connection {
+  display: flex;
+  gap: 14px;
+  padding: 18px;
+  background: #f3f7f2;
+  border-radius: 16px;
+  margin-bottom: 14px;
+}
+.drive-connection p {
+  margin: 6px 0 0;
+  font-size: 14px;
+}
+.storage-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 14px 0;
+}
+.storage-dialog button:not(.icon-button),
+.storage-actions a {
+  border: 1px solid #d5dfd6;
+  border-radius: 10px;
+  padding: 9px 12px;
+  background: #f9fbf8;
+  color: #254332;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+}
+.storage-dialog button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.storage-dialog .document-primary {
+  background: #28543b;
+  color: white;
+}
+.storage-dialog .muted {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #657168;
+}
+.google-app-setup {
+  margin: 20px 0;
+  border: 1px solid #dce4dc;
+  border-radius: 12px;
+  padding: 14px;
+}
+.google-app-setup summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.google-app-setup p {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.google-app-setup code {
+  overflow-wrap: anywhere;
+}
+.google-app-setup label,
+.storage-dot-select {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+  font-size: 13px;
+}
+.storage-dialog input,
+.storage-dialog select {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #d7ded7;
+  border-radius: 9px;
+  background: white;
+  color: #293d30;
+}
+.storage-search {
+  display: flex;
+  gap: 8px;
+  margin: 18px 0;
+}
+.storage-search button {
+  flex-shrink: 0;
+}
+.storage-files {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+}
+.storage-files li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #e6eae4;
+  padding: 14px 0;
+}
+.storage-files li > div {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.storage-files small {
+  display: block;
+  color: #6b746e;
+  margin-top: 4px;
+  font-size: 12px;
+}
+.attachment-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 8px;
+}
+.attachment-chips > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  background: #edf3e9;
+  padding: 6px 9px;
+  border-radius: 9px;
+  font-size: 12px;
+}
+.attachment-chips button {
+  display: inline-flex;
+  border: 0;
+  background: transparent;
+  padding: 3px;
+}
+.picker-dialog-bg,
+.picker-dialog {
+  z-index: 2000 !important;
+}
+@media (max-width: 600px) {
+  .storage-overlay {
+    padding: 8px;
+  }
+  .storage-dialog {
+    padding: 18px;
+    max-height: 95dvh;
+  }
+  .storage-files li {
+    flex-wrap: wrap;
+  }
+}

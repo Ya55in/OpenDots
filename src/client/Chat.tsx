@@ -1,3 +1,6 @@
+import { fileMessage } from './file-message';
+import { AttachmentDialog } from './FileBrowser';
+import type { StoredFile } from '../shared/storage';
 import { ModelRouting } from './ModelRouting';
 import { PageReviewCard } from './PageReviewCard';
 import { pageReviewSchema, pageReviewTool } from '../shared/page-review';
@@ -19,6 +22,7 @@ import {
 } from '@copilotkit/react-core/v2';
 import {
   FilePlus,
+  Paperclip,
   ArrowUp,
   Clock3,
   Link2,
@@ -95,6 +99,8 @@ export function Chat({
     };
   }, [thread.id, contextAttempt]);
   const [draft, setDraft] = useState('');
+  const [attachmentsOpen, setAttachmentsOpen] = useState(false);
+  const [attachments, setAttachments] = useState<StoredFile[]>([]);
   const [source, setSource] = useState('');
   const [sourceOpen, setSourceOpen] = useState(false);
   const [error, setError] = useState('');
@@ -134,15 +140,23 @@ export function Chat({
     };
   }, [agent, copilotkit, isReady]);
   const send = async (text: string) => {
-    if (!text.trim() || running || !loaded || !contextReady || paused) return;
+    if (
+      (!text.trim() && !attachments.length) ||
+      running ||
+      !loaded ||
+      !contextReady ||
+      paused
+    )
+      return;
     setError('');
     setRunning(true);
     agent.addMessage({
       id: crypto.randomUUID(),
       role: 'user',
-      content: contextualMessage(text, pageContext),
+      content: contextualMessage(fileMessage(text, attachments), pageContext),
     });
     setDraft('');
+    setAttachments([]);
     setSource('');
     setSourceOpen(false);
     try {
@@ -390,6 +404,21 @@ export function Chat({
         dot={dot}
         voice={voice}
       />
+      {attachmentsOpen && (
+        <AttachmentDialog
+          spaceId={dot.spaceId}
+          dotId={dot.id}
+          threadId={thread.id}
+          onClose={() => setAttachmentsOpen(false)}
+          onAttached={(file) =>
+            setAttachments((current) =>
+              current.some((f) => f.id === file.id)
+                ? current
+                : [...current, file],
+            )
+          }
+        />
+      )}
       <form
         className="chat-composer"
         onSubmit={(e) => {
@@ -397,6 +426,27 @@ export function Chat({
           void send(`${source ? `From ${source}:\n\n` : ''}${draft}`);
         }}
       >
+        {!!attachments.length && (
+          <div className="attachment-chips">
+            {attachments.map((file) => (
+              <span key={file.id}>
+                <Paperclip size={14} />
+                {file.name}
+                <button
+                  type="button"
+                  aria-label={`Remove ${file.name} from message`}
+                  onClick={() =>
+                    setAttachments((current) =>
+                      current.filter((f) => f.id !== file.id),
+                    )
+                  }
+                >
+                  <X size={14} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         {sourceOpen && (
           <div className="source-input">
             <Link2 size={15} />
@@ -421,6 +471,15 @@ export function Chat({
           </div>
         )}
         <div className="chat-compose-row">
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Attach files"
+            disabled={running || paused}
+            onClick={() => setAttachmentsOpen(true)}
+          >
+            <Paperclip size={19} />
+          </button>
           <button
             type="button"
             className="icon-button"
@@ -456,7 +515,12 @@ export function Chat({
             <button
               className="send-button"
               aria-label="Send message"
-              disabled={!draft.trim() || !loaded || !contextReady || paused}
+              disabled={
+                (!draft.trim() && !attachments.length) ||
+                !loaded ||
+                !contextReady ||
+                paused
+              }
             >
               <ArrowUp size={19} />
             </button>
