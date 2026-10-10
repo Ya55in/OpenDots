@@ -65,13 +65,15 @@ export class KnowledgeStore {
         )
         .get(id)!.n,
     );
-    const bytes = Number(
-      this.db
-        .prepare(
-          'SELECT coalesce(sum(length(data)),0) AS n FROM knowledge_chunks WHERE importId=?',
-        )
-        .get(id)!.n,
-    );
+    let bytes = 0;
+    for (const chunk of this.db
+      .prepare(
+        'SELECT offset,length(data) AS size FROM knowledge_chunks WHERE importId=? ORDER BY offset',
+      )
+      .iterate(id)) {
+      if (Number(chunk.offset) !== bytes) break;
+      bytes += Number(chunk.size);
+    }
     return { ...row, documents, bytes };
   }
   addDocuments(spaceId: string, id: string, inputs: KnowledgeDocument[]) {
@@ -107,12 +109,15 @@ export class KnowledgeStore {
     }
   }
   addChunk(spaceId: string, id: string, offset: number, base64: string) {
-    const state = this.status(spaceId, id);
+    const state = this.require(spaceId, id);
     if (state.complete) throw new Error('Completed imports are immutable.');
     const data = Buffer.from(base64, 'base64');
     if (
+      !Number.isSafeInteger(offset) ||
+      offset < 0 ||
+      offset % 524288 !== 0 ||
       !data.length ||
-      data.length > 524288 ||
+      data.length !== Math.min(524288, state.manifest.archiveSize - offset) ||
       data.toString('base64') !== base64 ||
       offset + data.length > state.manifest.archiveSize
     )
@@ -127,8 +132,6 @@ export class KnowledgeStore {
         throw new Error('Conflicting archive chunk.');
       return;
     }
-    if (offset !== state.bytes)
-      throw new Error('Resume at the confirmed byte offset.');
     this.db
       .prepare('INSERT INTO knowledge_chunks VALUES(?,?,?)')
       .run(id, offset, data);

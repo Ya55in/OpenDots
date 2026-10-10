@@ -77,7 +77,7 @@ describe('Private knowledge migrations', () => {
       ).toThrow('Conflicting');
       expect(() =>
         k.addChunk(s, i.id, 1, Buffer.from('z').toString('base64')),
-      ).toThrow('offset');
+      ).toThrow('Invalid');
       expect(() => k.addChunk(s, i.id, 0, 'not-base64')).toThrow('Invalid');
       expect(() =>
         k.addChunk(s, i.id, 0, Buffer.from('long').toString('base64')),
@@ -123,4 +123,37 @@ describe('Private knowledge migrations', () => {
       w.close();
     }
   });
+});
+
+it('resumes at the first missing chunk and verifies an out-of-order upload', () => {
+  const { w, s, k } = setup();
+  try {
+    const data = Buffer.alloc(524288 * 2 + 7, 42);
+    const m = {
+      ...manifest,
+      archiveSize: data.length,
+      archiveSha256: createHash('sha256').update(data).digest('hex'),
+    };
+    const i = k.start(s, m);
+    k.addDocuments(s, i.id, [doc]);
+    k.addChunk(
+      s,
+      i.id,
+      524288,
+      data.subarray(524288, 524288 * 2).toString('base64'),
+    );
+    expect(k.status(s, i.id).bytes).toBe(0);
+    expect(() => k.complete(s, i.id)).toThrow('incomplete');
+    k.addChunk(s, i.id, 0, data.subarray(0, 524288).toString('base64'));
+    expect(k.status(s, i.id).bytes).toBe(524288 * 2);
+    k.addChunk(
+      s,
+      i.id,
+      524288 * 2,
+      data.subarray(524288 * 2).toString('base64'),
+    );
+    expect(k.complete(s, i.id).complete).toBe(true);
+  } finally {
+    w.close();
+  }
 });
