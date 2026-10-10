@@ -4505,3 +4505,60 @@ h3 {
     flex-wrap: wrap;
   }
 }
+
+/* Generated files remain compact, identifiable, and directly downloadable. */
+.document-generation-card {
+  margin: 12px 0;
+  padding: 18px;
+  border: 1px solid var(--border, #d9e1e8);
+  border-radius: 16px;
+  background: var(--panel, #f7f9fc);
+}
+.document-artifacts {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+.artifact-download {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  text-align: left;
+  border-radius: 12px;
+  width: 100%;
+}
+.artifact-download span {
+  flex: 1;
+  min-width: 0;
+}
+.artifact-download strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.artifact-download small {
+  display: block;
+  margin-top: 4px;
+  opacity: 0.65;
+}
+.message-export {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 12px;
+  opacity: 0.7;
+  padding: 5px 8px;
+}
+.storage-dialog > label {
+  display: grid;
+  gap: 6px;
+  margin: 14px 0;
+  font-size: 13px;
+}
+.document-generation-card .artifact-download {
+  color: #243449;
+  background: #fff;
+  border: 1px solid #dce4ec;
+  cursor: pointer;
+}

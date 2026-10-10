@@ -44,22 +44,32 @@
     "@tiptap/react": "3.31.3",
     "@tiptap/starter-kit": "3.31.3",
     "@tiptap/suggestion": "3.31.3",
+    "docx": "^9.9.0",
+    "exceljs": "^4.4.0",
+    "fontkit": "^2.0.4",
     "google-auth-library": "^11.2.0",
     "hono": "^4.13.11",
     "lucide-react": "^1.48.0",
     "pdfjs-dist": "^6.4.299",
+    "pdfkit": "^0.20.2",
     "playwright": "^1.63.0",
+    "pptxgenjs": "^4.0.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
     "rxjs": "^7.8.1",
+    "unified": "^11.0.5",
     "yauzl": "^3.4.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/fontkit": "^2.0.9",
+    "@types/mdast": "^4.0.4",
     "@types/node": "^26.6.3",
+    "@types/pdfkit": "^0.17.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/react-test-renderer": "^19.3.0",
@@ -87,6 +97,12 @@
     "url": "git+https://github.com/CopilotKit/OpenDots.git"
   },
   "overrides": {
-    "undici": "^6.29.0"
+    "undici": "^6.29.0",
+    "pptxgenjs": {
+      "image-size": "^2.0.3"
+    },
+    "exceljs": {
+      "uuid": "^11.1.1"
+    }
   }
 }

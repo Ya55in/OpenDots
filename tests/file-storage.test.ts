@@ -339,6 +339,43 @@ describe('Space file storage', () => {
         })
       ).status,
     ).toBe(403);
+    expect(
+      (
+        await app.request(`/api/spaces/${space}/documents`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+        })
+      ).status,
+    ).toBe(401);
+    expect(
+      (
+        await app.request(`/api/spaces/${space}/documents`, {
+          method: 'POST',
+          headers: { ...headers, Origin: 'https://evil.example' },
+          body: '{}',
+        })
+      ).status,
+    ).toBe(403);
+    const documentResponse = await app.request(
+      `/api/spaces/${space}/documents`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          dotId: dot.id,
+          title: 'Owner document',
+          markdown: 'Authenticated content',
+          formats: ['txt'],
+        }),
+      },
+    );
+    expect(documentResponse.status).toBe(200);
+    const documentResult = await documentResponse.json();
+    expect(documentResult.files).toHaveLength(1);
+    expect(
+      (await app.request(documentResult.files[0].downloadUrl)).status,
+    ).toBe(401);
     const response = await app.request(`/api/spaces/${space}/files/uploads`, {
       method: 'POST',
       headers,
