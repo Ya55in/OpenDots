@@ -341,12 +341,14 @@ export class DotAgent extends AbstractAgent {
             );
             check();
             selectedModel = selection.model;
+            // Complete OOXML edit plans can exceed 6k tokens before tool execution.
+            // These are ceilings, not requested response lengths.
             outputLimit =
               selection.tier === 'routine'
                 ? 3000
                 : selection.tier === 'reasoning'
-                  ? 6000
-                  : 10000;
+                  ? 24000
+                  : 32000;
             this.workspace.routing.record(input.threadId, selection);
           }
           const adapter = openaiCompatibleText(selectedModel, {
