@@ -23,3 +23,5 @@ The PPTX is rendered by LibreOffice Impress into its matching PDF and authentica
 The generic Markdown slide tool is deliberately gated behind `plainSlides=true`, reserved for a user-requested plain text draft. It must not silently substitute for a branded presentation. PPTX preview is available in both generated file cards and the file library. LibreOffice Impress is installed in Railpack and Docker runtime images. The existing 25 MB file and 30-page review limits apply.
 
 Agent turns have a ten-minute wall-clock deadline so multi-step template discovery, rendering and visual review can complete. Stop, pause and access revocation still cancel running work; per-command and review-request deadlines remain shorter. The agent loop and provider output limits remain bounded.
+
+Reasoning/expert routes allow up to 24,000/32,000 output tokens per model call so complete slide edit plans are not cut off halfway through a tool argument. Routine turns retain a 3,000-token ceiling. These are maximum allowances; concise conversational replies remain preferred.

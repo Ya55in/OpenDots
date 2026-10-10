@@ -209,7 +209,7 @@ it('runs the pinned model through the real adapter and records routing without c
     );
     const body = JSON.parse(String(network.mock.calls[0][1]?.body));
     expect(body.model).toBe(router.models.expert);
-    expect(body.max_tokens).toBe(10000);
+    expect(body.max_tokens).toBe(32000);
     expect(body.provider).toEqual({
       require_parameters: true,
       data_collection: 'deny',
