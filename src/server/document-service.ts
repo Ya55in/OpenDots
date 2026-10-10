@@ -1,3 +1,5 @@
+import { templateTools } from './template-service.js';
+import type { PlatformConfig } from './platform-config.js';
 import { createHash } from 'node:crypto';
 import { Worker } from 'node:worker_threads';
 import { defineTool } from '@copilotkit/runtime/v2';
@@ -214,12 +216,22 @@ export function documentTools(
   threadId: string,
   check: () => void,
   signal?: AbortSignal,
+  config?: PlatformConfig,
 ) {
   return [
+    ...templateTools(
+      service,
+      dotId,
+      defaultSpace,
+      threadId,
+      check,
+      signal,
+      config,
+    ),
     defineTool({
       name: 'generate_document',
       description:
-        'Create real downloadable PDF, editable DOCX, XLSX, PPTX, Markdown, TXT or CSV files from final Markdown content. Use this tool whenever the user asks for a file; a page or pasted text is not a file. Files are saved in this Dot’s Space storage (Drive when connected) and returned as download links. PDF/Word have branded typography, wrapping tables and page numbers; slides are editable and split into readable sections. XLSX exports tables to sheets, CSV needs exactly one table. Use concise headings and Markdown tables; avoid emoji in PDFs, no HTML or image URLs (images are captions only). Preserve approved facts, sources, amounts and uncertainties. Never invent a logo/signature. Check returned errors/warnings before claiming completion. Request only the formats needed; PDF+DOCX is a useful document pair. Never claim visual inspection unless actually performed.',
+        'For a NEW design only; when reusing a prior Word file use find_word_templates, inspect_word_template and edit_word_template instead. Create real downloadable PDF, editable DOCX, XLSX, PPTX, Markdown, TXT or CSV files from final Markdown content. Use this tool whenever the user asks for a file; a page or pasted text is not a file. Files are saved in this Dot’s Space storage (Drive when connected) and returned as download links. PDF/Word have branded typography, wrapping tables and page numbers; slides are editable and split into readable sections. XLSX exports tables to sheets, CSV needs exactly one table. Use concise headings and Markdown tables; avoid emoji in PDFs, no HTML or image URLs (images are captions only). Preserve approved facts, sources, amounts and uncertainties. Never invent a logo/signature. Check returned errors/warnings before claiming completion. Request only the formats needed; PDF+DOCX is a useful document pair. Never claim visual inspection unless actually performed.',
       parameters: documentSchema.extend({ spaceId: z.string().optional() }),
       execute: async ({ spaceId, ...input }) =>
         generateFiles(

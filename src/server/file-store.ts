@@ -1,3 +1,4 @@
+import type { DocumentPreview } from './document-preview.js';
 import type { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
 import {
@@ -15,8 +16,24 @@ export interface DriveAccount {
   folderId: string | null;
 }
 export class FileStore {
+  preview(spaceId: string, fileId: string): DocumentPreview | undefined {
+    this.get(spaceId, fileId);
+    const row = this.db
+      .prepare(
+        'SELECT data FROM document_previews WHERE spaceId=? AND fileId=?',
+      )
+      .get(spaceId, fileId);
+    return row ? (JSON.parse(String(row.data)) as DocumentPreview) : undefined;
+  }
+  savePreview(spaceId: string, fileId: string, preview: DocumentPreview) {
+    this.get(spaceId, fileId);
+    this.db
+      .prepare('INSERT OR REPLACE INTO document_previews VALUES(?,?,?)')
+      .run(spaceId, fileId, JSON.stringify(preview));
+  }
   constructor(private db: DatabaseSync) {
-    db.exec(`CREATE TABLE IF NOT EXISTS storage_config(id INTEGER PRIMARY KEY, value TEXT NOT NULL);
+    db.exec(`CREATE TABLE IF NOT EXISTS document_previews(spaceId TEXT NOT NULL, fileId TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(spaceId,fileId));
+      CREATE TABLE IF NOT EXISTS storage_config(id INTEGER PRIMARY KEY, value TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS drive_accounts(spaceId TEXT PRIMARY KEY, id TEXT NOT NULL, email TEXT NOT NULL, secret TEXT NOT NULL, rootId TEXT, folderId TEXT, googleId TEXT);
       CREATE TABLE IF NOT EXISTS drive_identities(accountId TEXT PRIMARY KEY, spaceId TEXT NOT NULL, googleId TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS drive_folders(accountId TEXT NOT NULL, dotId TEXT NOT NULL, folderId TEXT NOT NULL, PRIMARY KEY(accountId,dotId));

@@ -1,3 +1,4 @@
+import { filePreview } from './template-service.js';
 import { documentSchema } from '../shared/documents.js';
 import { generateFiles } from './document-service.js';
 import { Hono } from 'hono';
@@ -164,6 +165,37 @@ export function fileRoutes(service: FileService) {
   app.post('/spaces/:spaceId/files/:id/refresh', async (c) =>
     c.json(await service.refresh(c.req.param('spaceId'), c.req.param('id'))),
   );
+  app.post('/spaces/:spaceId/files/:id/preview', async (c) => {
+    const preview = await filePreview(
+      service,
+      c.req.param('spaceId'),
+      c.req.param('id'),
+      c.req.raw.signal,
+    );
+    return c.json({
+      digest: preview.digest,
+      pageCount: preview.pages.length,
+      warnings: preview.warnings,
+      review: preview.review,
+    });
+  });
+  app.get('/spaces/:spaceId/files/:id/preview/:page', (c) => {
+    const page = z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(30)
+      .parse(c.req.param('page'));
+    const preview = store.preview(c.req.param('spaceId'), c.req.param('id'));
+    if (!preview?.pages[page - 1])
+      return c.json({ error: 'Preview page not found.' }, 404);
+    c.header('Cache-Control', 'no-store');
+    c.header('X-Content-Type-Options', 'nosniff');
+    c.header('Content-Type', 'image/png');
+    return c.body(
+      new Uint8Array(Buffer.from(preview.pages[page - 1], 'base64')),
+    );
+  });
   app.get('/spaces/:spaceId/files/:id/download', async (c) => {
     const f = await service.download(c.req.param('spaceId'), c.req.param('id'));
     c.header(
