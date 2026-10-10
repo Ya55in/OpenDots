@@ -1,3 +1,4 @@
+import { MembersPanel } from './MembersPanel';
 import { KnowledgeSection } from './KnowledgeSection';
 import { ModelRouting } from './ModelRouting';
 import { useEffect, useRef, useState } from 'react';
@@ -410,6 +411,9 @@ export function WorkspaceDialog({
           {dialog.type === 'settings' && (
             <div className="config-note">
               <ModelRouting />
+              {workspace.isAdmin !== false && (
+                <MembersPanel workspace={workspace} />
+              )}
               <strong>Service setup</strong>
               <p>
                 {workspace.setup.missing.length ? (

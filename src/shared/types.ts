@@ -116,6 +116,7 @@ export interface SetupStatus {
   missing: string[];
 }
 export interface WorkspaceState {
+  isAdmin?: boolean;
   spaces: Space[];
   dots: Dot[];
   conversations: Conversation[];

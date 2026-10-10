@@ -8,8 +8,91 @@ export class RoutingStore {
       CREATE TABLE IF NOT EXISTS routing_decisions(threadId TEXT PRIMARY KEY, value TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS routing_daily(dotId TEXT NOT NULL, day TEXT NOT NULL, turns INTEGER NOT NULL, PRIMARY KEY(dotId,day));
       CREATE TABLE IF NOT EXISTS agent_profiles(dotId TEXT PRIMARY KEY, profile TEXT NOT NULL UNIQUE);`);
+    db.exec(
+      `CREATE TABLE IF NOT EXISTS model_usage(id TEXT PRIMARY KEY,inputTokens INTEGER,outputTokens INTEGER,cachedTokens INTEGER,cacheWriteTokens INTEGER,finishedAt INTEGER,outcome TEXT);`,
+    );
     db.exec(`CREATE TABLE IF NOT EXISTS model_spend(id TEXT PRIMARY KEY,runId TEXT NOT NULL,dotId TEXT NOT NULL,threadId TEXT NOT NULL,day TEXT NOT NULL,model TEXT NOT NULL,reserved INTEGER NOT NULL,charged INTEGER,status TEXT NOT NULL,createdAt INTEGER NOT NULL);
       CREATE INDEX IF NOT EXISTS model_spend_day ON model_spend(day);`);
+  }
+  usageSnapshot(dotId?: string) {
+    const day = new Date().toISOString().slice(0, 10);
+    const rows = this.db
+      .prepare(
+        `SELECT s.*,u.inputTokens,u.outputTokens,u.cachedTokens,u.cacheWriteTokens,u.finishedAt,u.outcome FROM model_spend s LEFT JOIN model_usage u ON u.id=s.id WHERE s.day=? AND (? IS NULL OR s.dotId=?) ORDER BY s.createdAt DESC LIMIT 200`,
+      )
+      .all(day, dotId ?? null, dotId ?? null);
+    const totals = this.db
+      .prepare(
+        `SELECT COUNT(*) calls,COALESCE(SUM(s.charged),0) charged,COALESCE(SUM(CASE WHEN s.charged IS NULL THEN s.reserved ELSE 0 END),0) reserved,SUM(u.inputTokens) inputTokens,SUM(u.outputTokens) outputTokens,SUM(u.cachedTokens) cachedTokens,SUM(u.cacheWriteTokens) cacheWriteTokens FROM model_spend s LEFT JOIN model_usage u ON u.id=s.id WHERE s.day=? AND (? IS NULL OR s.dotId=?)`,
+      )
+      .get(day, dotId ?? null, dotId ?? null)!;
+    const nullable = (v: unknown) => (v == null ? null : Number(v));
+    return {
+      day,
+      updatedAt: Date.now(),
+      totals: {
+        calls: Number(totals.calls),
+        charged: Number(totals.charged) / 1e6,
+        reserved: Number(totals.reserved) / 1e6,
+        inputTokens: nullable(totals.inputTokens),
+        outputTokens: nullable(totals.outputTokens),
+        cachedTokens: nullable(totals.cachedTokens),
+        cacheWriteTokens: nullable(totals.cacheWriteTokens),
+      },
+      calls: rows.map((row) => ({
+        id: String(row.id),
+        dotId: String(row.dotId),
+        threadId: String(row.threadId),
+        runId: String(row.runId),
+        model: String(row.model),
+        reserved: Number(row.reserved) / 1e6,
+        charged: row.charged == null ? null : Number(row.charged) / 1e6,
+        status: String(row.status),
+        outcome: row.outcome == null ? 'pending' : String(row.outcome),
+        createdAt: Number(row.createdAt),
+        finishedAt: nullable(row.finishedAt),
+        inputTokens: nullable(row.inputTokens),
+        outputTokens: nullable(row.outputTokens),
+        cachedTokens: nullable(row.cachedTokens),
+        cacheWriteTokens: nullable(row.cacheWriteTokens),
+      })),
+    };
+  }
+  recordUsage(
+    id: string,
+    usage: {
+      prompt_tokens?: unknown;
+      completion_tokens?: unknown;
+      prompt_tokens_details?: {
+        cached_tokens?: unknown;
+        cache_write_tokens?: unknown;
+      };
+      cost?: unknown;
+    },
+  ) {
+    const n = (value: unknown) =>
+      typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+        ? value
+        : null;
+    this.db
+      .prepare(
+        `INSERT INTO model_usage(id,inputTokens,outputTokens,cachedTokens,cacheWriteTokens) VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET inputTokens=COALESCE(excluded.inputTokens,model_usage.inputTokens),outputTokens=COALESCE(excluded.outputTokens,model_usage.outputTokens),cachedTokens=COALESCE(excluded.cachedTokens,model_usage.cachedTokens),cacheWriteTokens=COALESCE(excluded.cacheWriteTokens,model_usage.cacheWriteTokens)`,
+      )
+      .run(
+        id,
+        n(usage.prompt_tokens),
+        n(usage.completion_tokens),
+        n(usage.prompt_tokens_details?.cached_tokens),
+        n(usage.prompt_tokens_details?.cache_write_tokens),
+      );
+    if (typeof usage.cost === 'number') this.settleSpend(id, usage.cost);
+  }
+  finishUsage(id: string, outcome: 'complete' | 'failed' | 'cancelled') {
+    this.db
+      .prepare(
+        `INSERT INTO model_usage(id,finishedAt,outcome) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET finishedAt=COALESCE(model_usage.finishedAt,excluded.finishedAt),outcome=COALESCE(model_usage.outcome,excluded.outcome)`,
+      )
+      .run(id, Date.now(), outcome);
   }
   preference(threadId: string): RoutingPreference {
     const row = this.db

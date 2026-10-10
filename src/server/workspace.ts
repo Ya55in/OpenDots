@@ -1,3 +1,5 @@
+import { MemberStore, memberContext } from './members.js';
+import { TaskContextStore } from './task-context.js';
 import { FileStore } from './file-store.js';
 import { KnowledgeStore } from './knowledge.js';
 import { RoutingStore } from './routing-store.js';
@@ -12,6 +14,8 @@ import { validateLearningSettings } from '../shared/learning.js';
 import type { CallReceipt, Conversation, Dot, Space } from '../shared/types.js';
 export class WorkspaceStore {
   private db: DatabaseSync;
+  readonly members: MemberStore;
+  readonly context: TaskContextStore;
   readonly pages: Pages;
   readonly knowledge: KnowledgeStore;
   readonly files: FileStore;
@@ -57,6 +61,8 @@ export class WorkspaceStore {
         INSERT INTO dot_spaces SELECT id, spaceId FROM dots;
         COMMIT;`);
     }
+    this.members = new MemberStore(this.db);
+    this.context = new TaskContextStore(this.db);
     this.knowledge = new KnowledgeStore(this.db);
     this.files = new FileStore(this.db);
     this.routing = new RoutingStore(this.db);
@@ -89,10 +95,23 @@ export class WorkspaceStore {
   close() {
     this.db.close();
   }
+  member() {
+    const id = memberContext.getStore();
+    if (!id) return undefined;
+    const member = this.members.get(id);
+    if (!member?.active) throw new Error('Member access has been revoked.');
+    return member;
+  }
+  get currentUserId() {
+    return this.member()?.id ?? this.ownerId;
+  }
   spaces(): Space[] {
-    return this.db
-      .prepare('SELECT * FROM spaces ORDER BY createdAt')
-      .all() as unknown as Space[];
+    const member = this.member();
+    return (
+      this.db
+        .prepare('SELECT * FROM spaces ORDER BY createdAt')
+        .all() as unknown as Space[]
+    ).filter((space) => !member || member.spaceIds.includes(space.id));
   }
   createSpace(name: string, description: string): Space {
     const space = {
@@ -107,21 +126,43 @@ export class WorkspaceStore {
     return space;
   }
   dots(): Dot[] {
-    return this.db
-      .prepare('SELECT * FROM dots ORDER BY createdAt')
-      .all()
-      .map((row) => ({
-        ...row,
-        spaceIds: this.db
-          .prepare(
-            'SELECT spaceId FROM dot_spaces WHERE dotId=? ORDER BY spaceId',
-          )
-          .all(String(row.id))
-          .map((grant) => String(grant.spaceId)),
-        researchAllowed: !!row.researchAllowed,
-        memoryAllowed: !!row.memoryAllowed,
-        skillDeliveryEnabled: !!row.skillDeliveryEnabled,
-      })) as unknown as Dot[];
+    const member = this.member();
+    return (
+      this.db
+        .prepare('SELECT * FROM dots ORDER BY createdAt')
+        .all()
+        .map((row) => ({
+          ...row,
+          spaceIds: this.db
+            .prepare(
+              'SELECT spaceId FROM dot_spaces WHERE dotId=? ORDER BY spaceId',
+            )
+            .all(String(row.id))
+            .map((grant) => String(grant.spaceId)),
+          researchAllowed: !!row.researchAllowed,
+          memoryAllowed: !!row.memoryAllowed,
+          skillDeliveryEnabled: !!row.skillDeliveryEnabled,
+        })) as unknown as Dot[]
+    )
+      .filter(
+        (dot) =>
+          !member ||
+          (member.dotIds.includes(dot.id) &&
+            dot.spaceIds.some((id) => member.spaceIds.includes(id))),
+      )
+      .map((dot) => {
+        if (!member) return dot;
+        const spaceIds = dot.spaceIds.filter((id) =>
+          member.spaceIds.includes(id),
+        );
+        return {
+          ...dot,
+          spaceIds,
+          spaceId: spaceIds.includes(dot.spaceId) ? dot.spaceId : spaceIds[0],
+          learningContainerId: null,
+          skillDeliveryEnabled: false,
+        };
+      });
   }
   dot(id: string) {
     return this.dots().find((dot) => dot.id === id);
@@ -177,6 +218,12 @@ export class WorkspaceStore {
     return dot;
   }
   canAccessSpace(dotId: string, spaceId: string) {
+    const member = this.member();
+    if (
+      member &&
+      (!member.dotIds.includes(dotId) || !member.spaceIds.includes(spaceId))
+    )
+      return false;
     return !!this.db
       .prepare('SELECT 1 FROM dot_spaces WHERE dotId=? AND spaceId=?')
       .get(dotId, spaceId);
@@ -241,11 +288,14 @@ export class WorkspaceStore {
     return this.dot(id)!;
   }
   conversations(): Conversation[] {
-    return this.db
-      .prepare(
-        'SELECT * FROM thread_bindings WHERE ownerId=? ORDER BY createdAt DESC',
-      )
-      .all(this.ownerId) as unknown as Conversation[];
+    const member = this.member();
+    return (
+      this.db
+        .prepare(
+          'SELECT * FROM thread_bindings WHERE ownerId=? ORDER BY createdAt DESC',
+        )
+        .all(this.currentUserId) as unknown as Conversation[]
+    ).filter((thread) => !member || !!this.dot(thread.dotId));
   }
   bindThread(id: string, dotId: string, title: string): Conversation {
     const dot = this.dot(dotId);
@@ -253,7 +303,7 @@ export class WorkspaceStore {
     const value: Conversation = {
       id,
       dotId,
-      ownerId: this.ownerId,
+      ownerId: this.currentUserId,
       title,
       createdAt: Date.now(),
       learningContainerId: dot.learningContainerId ?? null,
@@ -265,7 +315,7 @@ export class WorkspaceStore {
       .run(
         id,
         dotId,
-        this.ownerId,
+        this.currentUserId,
         title,
         value.createdAt,
         value.learningContainerId ?? null,
@@ -274,7 +324,11 @@ export class WorkspaceStore {
   }
   requireThread(id: string, dotId?: string): Conversation {
     const thread = this.conversations().find((thread) => thread.id === id);
-    if (!thread || (dotId && thread.dotId !== dotId))
+    if (
+      !thread ||
+      (this.member() && !this.dot(thread.dotId)) ||
+      (dotId && thread.dotId !== dotId)
+    )
       throw new Error('Conversation does not belong to this Dot and owner.');
     return thread;
   }

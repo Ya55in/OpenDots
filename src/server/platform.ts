@@ -86,7 +86,7 @@ export class Platform {
       telemetryId: this.setupTelemetry.identity,
       telemetryProperties: this.setupTelemetry.metadata,
       identifyUser: async () => ({
-        id: workspace.ownerId,
+        id: workspace.currentUserId,
         name: 'OpenDots owner',
       }),
       agents: async () =>
@@ -157,7 +157,7 @@ export class Platform {
     try {
       await this.intelligence!.createThread({
         threadId: id,
-        userId: this.workspace.ownerId,
+        userId: this.workspace.currentUserId,
         agentId: dotId,
         name: title,
       });
@@ -173,7 +173,7 @@ export class Platform {
     this.workspace.requireThread(threadId);
     const history = await this.intelligence!.getThreadMessages({
       threadId,
-      userId: this.workspace.ownerId,
+      userId: this.workspace.currentUserId,
     });
     return history.messages
       .filter((message) => ['user', 'assistant'].includes(message.role))

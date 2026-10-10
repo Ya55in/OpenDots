@@ -1,3 +1,5 @@
+import { memberContext, memberInput } from './members.js';
+import { memberRouteAllowed } from './member-routes.js';
 import { fileRoutes, driveCallbackRoutes } from './file-routes.js';
 import { computerRoutes } from './computer-routes.js';
 import { connectionRoutes } from './connection-routes.js';
@@ -71,6 +73,7 @@ export function createApp({
       return c.json({ error: 'Cross-origin requests are not allowed.' }, 403);
     if (c.req.header('sec-fetch-site') === 'cross-site')
       return c.json({ error: 'Cross-site requests are not allowed.' }, 403);
+    let memberId: string | undefined;
     if (ownerToken) {
       const expected = Buffer.from(ownerToken);
       const supplied = Buffer.from(
@@ -79,18 +82,125 @@ export function createApp({
       if (
         expected.length !== supplied.length ||
         !timingSafeEqual(expected, supplied)
-      )
-        return c.json(
-          { error: 'Enter your owner access token to unlock OpenDots.' },
-          401,
+      ) {
+        const member = platform?.workspace.members.authenticate(
+          supplied.toString(),
         );
+        if (!member)
+          return c.json(
+            {
+              error:
+                'Enter a valid owner or member access code to unlock OpenDots.',
+            },
+            401,
+          );
+        memberId = member.id;
+      }
     }
     if (
       !['GET', 'HEAD'].includes(c.req.method) &&
       !c.req.header('content-type')?.includes('application/json')
     )
       return c.json({ error: 'Use application/json.' }, 415);
+    if (memberId && platform) {
+      return memberContext.run(memberId, async () => {
+        try {
+          if (!(await memberRouteAllowed(c.req.raw, platform.workspace)))
+            return c.json(
+              { error: 'Your membership does not allow this action.' },
+              403,
+            );
+        } catch {
+          return c.json(
+            { error: 'This resource is not available to your membership.' },
+            403,
+          );
+        }
+        await next();
+      });
+    }
     await next();
+  });
+  const isAdmin = (authorization: string | undefined) => {
+    if (!ownerToken) return false;
+    const supplied = Buffer.from(authorization?.replace(/^Bearer /, '') ?? '');
+    const expected = Buffer.from(ownerToken);
+    return (
+      expected.length === supplied.length && timingSafeEqual(expected, supplied)
+    );
+  };
+  app.get('/api/session', (c) =>
+    c.json({ isAdmin: isAdmin(c.req.header('authorization')) }),
+  );
+  app.use('/api/admin/*', async (c, next) => {
+    if (!isAdmin(c.req.header('authorization')))
+      return c.json({ error: 'Administrator access required.' }, 403);
+    await next();
+  });
+  app.get('/api/admin/members', (c) =>
+    c.json(platform?.workspace.members.list() ?? []),
+  );
+  const validGrants = (input: { dotIds: string[]; spaceIds: string[] }) =>
+    !!platform &&
+    input.dotIds.every((id) => platform.workspace.dot(id)) &&
+    input.spaceIds.every((id) =>
+      platform.workspace.spaces().some((space) => space.id === id),
+    ) &&
+    input.dotIds.every((id) =>
+      platform.workspace
+        .dot(id)!
+        .spaceIds.some((space) => input.spaceIds.includes(space)),
+    );
+  app.post('/api/admin/members', async (c) => {
+    const input = memberInput.safeParse(await c.req.json().catch(() => null));
+    if (!input.success || !validGrants(input.data))
+      return c.json(
+        {
+          error: 'Select valid agents and at least one of each agent’s Spaces.',
+        },
+        400,
+      );
+    return c.json(platform!.workspace.members.create(input.data), 201);
+  });
+  app.put('/api/admin/members/:id', async (c) => {
+    const input = memberInput.safeParse(await c.req.json().catch(() => null));
+    if (!input.success || !validGrants(input.data))
+      return c.json({ error: 'Select valid agents and Spaces.' }, 400);
+    if (!platform!.workspace.members.get(c.req.param('id')))
+      return c.json({ error: 'Member not found.' }, 404);
+    return c.json(
+      platform!.workspace.members.update(c.req.param('id'), input.data),
+    );
+  });
+  app.post('/api/admin/members/:id/rotate', (c) => {
+    if (!platform?.workspace.members.get(c.req.param('id')))
+      return c.json({ error: 'Member not found.' }, 404);
+    return c.json(platform.workspace.members.rotate(c.req.param('id')));
+  });
+  app.get('/api/admin/usage', (c) => {
+    if (!isAdmin(c.req.header('authorization')))
+      return c.json({ error: 'Administrator access required.' }, 403);
+    if (!platform)
+      return c.json({ error: 'Usage tracking is unavailable.' }, 503);
+    const dotId = c.req.query('dotId');
+    if (dotId && !platform.workspace.dot(dotId))
+      return c.json({ error: 'Dot not found.' }, 404);
+    const router = platform.config.router;
+    const snapshot = platform.workspace.routing.usageSnapshot(dotId);
+    return c.json({
+      ...snapshot,
+      calls: snapshot.calls.map((call) => ({
+        ...call,
+        dotName: platform.workspace.dot(call.dotId)?.name,
+      })),
+      budgets: router
+        ? {
+            daily: router.dailyUsd,
+            dotDaily: router.dotDailyUsd,
+            request: router.turnUsd,
+          }
+        : null,
+    });
   });
   if (platform) app.route('/api', fileRoutes(platform.files));
   if (platform) app.route('/api', computerRoutes(platform.computers));
@@ -104,8 +214,8 @@ export function createApp({
   app.get('/api/state', (c) =>
     c.json({
       settings: store.settings(),
-      tasks: store.tasks(),
-      memories: store.memories(),
+      tasks: platform?.workspace.member() ? [] : store.tasks(),
+      memories: platform?.workspace.member() ? [] : store.memories(),
       mode: config.mode,
       configured: configured(config),
     }),
