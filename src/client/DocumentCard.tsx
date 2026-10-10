@@ -1,3 +1,4 @@
+import { DocumentPreviewButton } from './DocumentPreview';
 import { useState } from 'react';
 import { Download, FileText } from 'lucide-react';
 import { documentResultSchema, type DocumentResult } from '../shared/documents';
@@ -8,37 +9,46 @@ export function DocumentFiles({ result }: { result: DocumentResult }) {
   return (
     <div className="document-artifacts">
       {result.files.map((f) => (
-        <button
-          type="button"
-          className="artifact-download"
-          key={f.id}
-          disabled={!!busy}
-          onClick={async () => {
-            setBusy(f.id);
-            setError('');
-            try {
-              await downloadDocument(
-                `/api/spaces/${f.spaceId}/files/${f.id}/download`,
-                f.name,
-              );
-            } catch (e) {
-              setError(e instanceof Error ? e.message : 'Download failed.');
-            } finally {
-              setBusy('');
-            }
-          }}
-        >
-          <FileText size={22} />
-          <span>
-            <strong>{f.name}</strong>
-            <small>
-              {(f.size / 1024).toFixed(0)} KB ·{' '}
-              {f.provider === 'drive' ? 'Google Drive' : 'Saved in OpenDots'}
-              {busy === f.id ? ' · Downloading…' : ''}
-            </small>
-          </span>
-          <Download size={18} />
-        </button>
+        <div key={f.id} className="document-file-row">
+          <button
+            type="button"
+            className="artifact-download"
+            key={f.id}
+            disabled={!!busy}
+            onClick={async () => {
+              setBusy(f.id);
+              setError('');
+              try {
+                await downloadDocument(
+                  `/api/spaces/${f.spaceId}/files/${f.id}/download`,
+                  f.name,
+                );
+              } catch (e) {
+                setError(e instanceof Error ? e.message : 'Download failed.');
+              } finally {
+                setBusy('');
+              }
+            }}
+          >
+            <FileText size={22} />
+            <span>
+              <strong>{f.name}</strong>
+              <small>
+                {(f.size / 1024).toFixed(0)} KB ·{' '}
+                {f.provider === 'drive' ? 'Google Drive' : 'Saved in OpenDots'}
+                {busy === f.id ? ' · Downloading…' : ''}
+              </small>
+            </span>
+            <Download size={18} />
+          </button>
+          {/\.(pdf|docx)$/i.test(f.name) && (
+            <DocumentPreviewButton
+              spaceId={f.spaceId}
+              fileId={f.id}
+              name={f.name}
+            />
+          )}
+        </div>
       ))}
       {result.warnings.map((w) => (
         <p className="muted" key={w}>

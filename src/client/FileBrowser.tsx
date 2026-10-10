@@ -1,3 +1,4 @@
+import { DocumentPreviewButton } from './DocumentPreview';
 import { StorageDialog } from './StorageDialog';
 import { useEffect, useRef, useState } from 'react';
 import { Cloud, Download, FileText, Upload, X } from 'lucide-react';
@@ -239,6 +240,13 @@ export function FileBrowser({
               </small>
               <small>{f.textStatus}</small>
             </div>
+            {/\.(pdf|docx)$/i.test(f.name) && (
+              <DocumentPreviewButton
+                spaceId={spaceId}
+                fileId={f.id}
+                name={f.name}
+              />
+            )}
             {onAttached && (
               <button
                 type="button"

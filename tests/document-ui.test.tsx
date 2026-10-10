@@ -1,5 +1,6 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
+vi.mock('../src/client/api', () => ({ api: vi.fn(), authHeaders: () => ({}) }));
 import { DocumentCard } from '../src/client/DocumentCard';
 import { ChatTranscript } from '../src/client/ChatTranscript';
 it('renders downloads from validated tool results, including after conversation reload', () => {
@@ -22,6 +23,7 @@ it('renders downloads from validated tool results, including after conversation 
   );
   expect(html).toContain('Proposal.pdf');
   expect(html).toContain('2 KB');
+  expect(html).toContain('Preview Proposal.pdf');
   expect(html).toContain('Images are captions only.');
   expect(html).toContain('Shorten the table.');
   expect(html).not.toContain('Designing');
