@@ -1,3 +1,4 @@
+import { FREE_ROUTER_MODEL } from '../shared/routing.js';
 import { z } from 'zod';
 import type {
   RoutingDecision,
@@ -19,6 +20,7 @@ export const modelRates: Record<
   string,
   { input: number; output: number; vision: boolean }
 > = {
+  [FREE_ROUTER_MODEL]: { input: 0, output: 0, vision: true },
   'qwen/qwen3.8-flash': { input: 0.2, output: 0.6, vision: true },
   'z-ai/glm-5.3-flash': { input: 0.2, output: 0.6, vision: true },
   'deepseek/deepseek-v4-pro': { input: 0.3, output: 0.6, vision: false },
@@ -115,6 +117,15 @@ export async function chooseModel(
     selectedAt: Date.now(),
   });
   if (preference.mode === 'manual') {
+    if (preference.model === FREE_ROUTER_MODEL)
+      return {
+        model: FREE_ROUTER_MODEL,
+        tier: 'reasoning',
+        source: 'manual',
+        reason:
+          'Free-only preset: preferred free models, then the compatible free pool. No paid model fallback or Jev calls.',
+        selectedAt: Date.now(),
+      };
     const tier = (Object.keys(config.models) as RoutingTier[]).find(
       (t) => config.models[t] === preference.model,
     );

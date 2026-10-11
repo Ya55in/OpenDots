@@ -1,3 +1,4 @@
+import { FREE_ROUTER_MODEL, FREE_ROUTER_LABEL } from '../shared/routing.js';
 import { randomUUID } from 'node:crypto';
 import { budgetFetch } from './model-budget.js';
 import { decisionInput, decideWithJev } from './jev-decisions.js';
@@ -61,10 +62,19 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
     enabled: !!platform.config.router,
     jevConfigured: !!platform.config.router?.jevKey,
     models: platform.config.router
-      ? Object.entries(platform.config.router.models).map(([tier, id]) => ({
-          id,
-          tier: tier as RoutingTier,
-        }))
+      ? [
+          ...Object.entries(platform.config.router.models).map(
+            ([tier, id]) => ({
+              id,
+              tier: tier as RoutingTier,
+            }),
+          ),
+          {
+            id: FREE_ROUTER_MODEL,
+            tier: 'reasoning' as RoutingTier,
+            label: FREE_ROUTER_LABEL,
+          },
+        ]
       : [],
     dailyTurnLimit: platform.config.router?.dailyTurnLimit ?? 0,
     dailyUsd: platform.config.router?.dailyUsd,
@@ -101,6 +111,7 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
       );
     if (
       parsed.data.mode === 'manual' &&
+      parsed.data.model !== FREE_ROUTER_MODEL &&
       !Object.values(platform.config.router.models).includes(parsed.data.model)
     )
       return c.json({ error: 'This model is not allowed by the server.' }, 400);
@@ -114,6 +125,14 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
   app.post('/conversations/:id/decisions', async (c) => {
     const thread = platform.workspace.requireThread(c.req.param('id'));
     const config = platform.config.router;
+    if (
+      platform.workspace.routing.preference(thread.id).model ===
+      FREE_ROUTER_MODEL
+    )
+      return c.json(
+        { error: 'Jev is disabled for this free-only conversation.' },
+        409,
+      );
     if (!config?.jevKey)
       return c.json({ error: 'Jev is not configured.' }, 409);
     if (platform.store.settings().paused)

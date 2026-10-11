@@ -1,3 +1,4 @@
+import { FREE_ROUTER_MODEL } from '../src/shared/routing.js';
 import { afterEach, expect, it, vi } from 'vitest';
 import {
   chooseModel,
@@ -164,72 +165,89 @@ it('prepares separate agents once and preserves subsequent owner edits and permi
     ws.close();
   }
 });
-it('runs the pinned model through the real adapter and records routing without changing tools', async () => {
-  const ws = new WorkspaceStore(':memory:', 'owner');
-  const store = new Store(':memory:');
-  try {
-    const dot = ws.dots()[0];
-    ws.bindThread('thread', dot.id, 'Test');
-    ws.routing.setPreference('thread', {
-      mode: 'manual',
-      model: router.models.expert,
-    });
-    const network = vi
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(
-        completion({ role: 'assistant', content: 'Verified response.' }),
+it.each([router.models.expert, FREE_ROUTER_MODEL])(
+  'runs pinned %s through the real adapter',
+  async (model) => {
+    const ws = new WorkspaceStore(':memory:', 'owner');
+    const store = new Store(':memory:');
+    try {
+      const dot = ws.dots()[0];
+      ws.bindThread('thread', dot.id, 'Test');
+      ws.routing.setPreference('thread', {
+        mode: 'manual',
+        model,
+      });
+      const network = vi
+        .spyOn(globalThis, 'fetch')
+        .mockResolvedValue(
+          completion({ role: 'assistant', content: 'Verified response.' }),
+        );
+      const agent = new DotAgent(
+        store,
+        ws,
+        {
+          router: { ...router, turnUsd: 0.5, jevKey: 'fixture' },
+          apiKey: 'fixture',
+          intelligenceKey: 'fixture',
+          model: router.models.reasoning,
+          baseUrl: 'https://openrouter.ai/api/v1',
+          runtimeUrl: '',
+          voiceName: 'marin',
+          slackUsers: [],
+        },
+        dot.id,
       );
-    const agent = new DotAgent(
-      store,
-      ws,
-      {
-        router: { ...router, turnUsd: 0.5 },
-        apiKey: 'fixture',
-        intelligenceKey: 'fixture',
-        model: router.models.reasoning,
-        baseUrl: 'https://openrouter.ai/api/v1',
-        runtimeUrl: '',
-        voiceName: 'marin',
-        slackUsers: [],
-      },
-      dot.id,
-    );
-    await lastValueFrom(
-      agent
-        .run({
-          threadId: 'thread',
-          runId: 'run',
-          state: {},
-          context: [],
-          messages: [{ id: 'user', role: 'user', content: 'Hello' }],
-          tools: [],
-          forwardedProps: { model: 'unapproved' },
-        })
-        .pipe(toArray()),
-    );
-    const body = JSON.parse(String(network.mock.calls[0][1]?.body));
-    expect(body.model).toBe(router.models.expert);
-    expect(body.max_tokens).toBe(8000);
-    expect(body.provider).toEqual(
-      expect.objectContaining({
-        require_parameters: true,
-        data_collection: 'deny',
-      }),
-    );
-    expect(body.models).toBeUndefined();
-    expect(JSON.stringify(body.messages[0])).toContain('cache_control');
-    expect(JSON.stringify(body.messages[0].content[0])).not.toContain(
-      '<opendots_runtime_context>',
-    );
-    expect(JSON.stringify(body.messages)).toContain(
-      '<opendots_runtime_context>',
-    );
-    expect(ws.routing.lastDecision('thread')?.source).toBe('manual');
-  } finally {
-    ws.close();
-    store.close();
-  }
-});
+      await lastValueFrom(
+        agent
+          .run({
+            threadId: 'thread',
+            runId: 'run',
+            state: {},
+            context: [],
+            messages: [{ id: 'user', role: 'user', content: 'Hello' }],
+            tools: [],
+            forwardedProps: { model: 'unapproved' },
+          })
+          .pipe(toArray()),
+      );
+      const body = JSON.parse(String(network.mock.calls[0][1]?.body));
+      expect(body.model).toBe(model);
+      expect(body.max_tokens).toBe(8000);
+      expect(body.provider).toEqual(
+        expect.objectContaining({
+          require_parameters: true,
+          data_collection: 'deny',
+        }),
+      );
+      expect(body.models).toBeUndefined();
+      if (model === FREE_ROUTER_MODEL) {
+        expect(body.provider.max_price).toEqual({
+          prompt: 0,
+          completion: 0,
+          request: 0,
+        });
+        expect(
+          body.tools.some(
+            (t: { function: { name: string } }) =>
+              t.function.name === 'classify_with_jev',
+          ),
+        ).toBe(false);
+      } else {
+        expect(JSON.stringify(body.messages[0])).toContain('cache_control');
+        expect(JSON.stringify(body.messages[0].content[0])).not.toContain(
+          '<opendots_runtime_context>',
+        );
+      }
+      expect(JSON.stringify(body.messages)).toContain(
+        '<opendots_runtime_context>',
+      );
+      expect(ws.routing.lastDecision('thread')?.source).toBe('manual');
+    } finally {
+      ws.close();
+      store.close();
+    }
+  },
+);
 
 it('validates owner conversation routes and keeps provider secrets out of status', async () => {
   const { Platform } = await import('../src/server/platform.js');
@@ -276,6 +294,25 @@ it('validates owner conversation routes and keeps provider secrets out of status
       mode: 'manual',
       model: router.models.reasoning,
     });
+    expect(data.models).toContainEqual({
+      id: FREE_ROUTER_MODEL,
+      tier: 'reasoning',
+      label: 'OpenDots Free — Best First',
+    });
+    expect(
+      (await update('owned', { mode: 'manual', model: FREE_ROUTER_MODEL }))
+        .status,
+    ).toBe(200);
+    expect(ws.routing.preference('owned').model).toBe(FREE_ROUTER_MODEL);
+    expect(
+      (
+        await app.request('/conversations/owned/decisions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: ['test'], categories: ['a', 'b'] }),
+        })
+      ).status,
+    ).toBe(409);
     expect(JSON.stringify(data)).not.toMatch(
       /never-return-this|openrouter-secret/,
     );
@@ -283,4 +320,22 @@ it('validates owner conversation routes and keeps provider secrets out of status
     ws.close();
     store.close();
   }
+});
+
+it('free preset bypasses Jev even for complex tasks', async () => {
+  const network = vi.fn<typeof fetch>();
+  const selected = await chooseModel(
+    { ...router, jevKey: 'secret' },
+    { mode: 'manual', model: FREE_ROUTER_MODEL },
+    'Audit pricing and create a presentation',
+    null,
+    new AbortController().signal,
+    network,
+  );
+  expect(selected).toMatchObject({
+    model: FREE_ROUTER_MODEL,
+    source: 'manual',
+    tier: 'reasoning',
+  });
+  expect(network).not.toHaveBeenCalled();
 });

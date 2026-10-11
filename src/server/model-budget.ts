@@ -1,3 +1,4 @@
+import { FREE_ROUTER_MODEL } from '../shared/routing.js';
 import { createHash } from 'node:crypto';
 import type { RoutingStore } from './routing-store.js';
 import { modelRates, type RouterConfig } from './model-router.js';
@@ -8,7 +9,7 @@ export class CostControlError extends Error {}
 export function budgetFetch(
   store: RoutingStore,
   config: RouterConfig,
-  scope: { runId: string; dotId: string; threadId: string },
+  scope: { runId: string; dotId: string; threadId: string; freeOnly?: boolean },
   transport: typeof fetch = fetch,
 ): typeof fetch {
   return async (url, init) => {
@@ -26,6 +27,10 @@ export function budgetFetch(
     if (typeof init?.body !== 'string')
       throw new Error('Model request must have a JSON body.');
     const body = JSON.parse(init.body);
+    if (scope.freeOnly && (jev || body.model !== FREE_ROUTER_MODEL))
+      throw new CostControlError(
+        'This conversation is free-only; paid model and Jev calls are disabled.',
+      );
     let estimate: number;
     if (jev) {
       // Vendor rate is $0.042/M input, no output charge. Reserve above that rate.
@@ -86,11 +91,16 @@ export function budgetFetch(
       estimate = (input * rate.input * 1.25 + output * rate.output) / 1e6;
       body.provider = {
         ...body.provider,
-        sort: 'price',
+        sort: body.model === FREE_ROUTER_MODEL ? undefined : 'price',
         require_parameters: true,
         data_collection: 'deny',
         max_price: { prompt: rate.input, completion: rate.output, request: 0 },
       };
+      if (body.model === FREE_ROUTER_MODEL) {
+        // Never let client fallbacks or paid server plugins escape the preset.
+        delete body.models;
+        body.plugins = [];
+      }
       if (body.stream)
         body.stream_options = { ...body.stream_options, include_usage: true };
       body.usage = { include: true };

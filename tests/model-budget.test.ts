@@ -1,3 +1,4 @@
+import { FREE_ROUTER_MODEL } from '../src/shared/routing.js';
 import { afterEach, expect, it, vi } from 'vitest';
 import { WorkspaceStore } from '../src/server/workspace.js';
 import { budgetFetch } from '../src/server/model-budget.js';
@@ -223,4 +224,53 @@ it('direct Jev sorting uses only one typed request, exposes low confidence and n
       request,
     ),
   ).rejects.toThrow('no fallback LLM');
+});
+
+it('free preset enforces zero prices, strips paid fallbacks, and blocks paid auxiliary calls', async () => {
+  const ws = new WorkspaceStore(':memory:', 'owner');
+  try {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify({ usage: { cost: 0 } })));
+    const transport = budgetFetch(
+      ws.routing,
+      config,
+      { runId: 'free', dotId: 'd', threadId: 't', freeOnly: true },
+      request,
+    );
+    await transport('https://openrouter.ai/api/v1/chat/completions', {
+      body: JSON.stringify({
+        model: FREE_ROUTER_MODEL,
+        messages: [],
+        max_tokens: 100,
+        models: [config.models.expert],
+        plugins: [{ id: 'web' }],
+        provider: { max_price: { prompt: 100 } },
+      }),
+    });
+    const body = JSON.parse(String(request.mock.calls[0][1]?.body));
+    expect(body.model).toBe(FREE_ROUTER_MODEL);
+    expect(body.provider.max_price).toEqual({
+      prompt: 0,
+      completion: 0,
+      request: 0,
+    });
+    expect(body.provider.sort).toBeUndefined();
+    expect(body.models).toBeUndefined();
+    expect(body.plugins).toEqual([]);
+    expect(ws.routing.spending().charged).toBe(0);
+    for (const [url, model] of [
+      ['https://api.typesafe.ai/v1/systemone', 'jev-latest'],
+      ['https://openrouter.ai/api/v1/chat/completions', config.reviewModel],
+    ]) {
+      await expect(
+        transport(url, {
+          body: JSON.stringify({ model, max_tokens: 100, messages: [] }),
+        }),
+      ).rejects.toThrow('free-only');
+    }
+    expect(request).toHaveBeenCalledTimes(1);
+  } finally {
+    ws.close();
+  }
 });
