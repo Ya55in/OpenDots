@@ -1,3 +1,4 @@
+import { FREE_ROUTER_MODEL } from '../shared/routing.js';
 import { memberContext } from './members.js';
 import { OPENUI_PROMPT, openUIRequested } from '../shared/openui.js';
 import { taskContextTools } from './task-context.js';
@@ -360,11 +361,18 @@ export class DotAgent extends AbstractAgent {
                   .search(dot.spaceId, requestContext.slice(0, 500))
                   .slice(0, 5)
               : [];
+          const routingPreference = this.workspace.routing.preference(
+            input.threadId,
+          );
+          const freeOnly =
+            routingPreference.mode === 'manual' &&
+            routingPreference.model === FREE_ROUTER_MODEL;
           const controlledFetch = this.config.router
             ? budgetFetch(this.workspace.routing, this.config.router, {
                 dotId: dot.id,
                 threadId: input.threadId,
                 runId: input.runId,
+                freeOnly,
               })
             : undefined;
           const modelFetch: typeof fetch | undefined = controlledFetch
@@ -377,7 +385,18 @@ export class DotAgent extends AbstractAgent {
                 }
               }
             : undefined;
-          const modelConfig = { ...this.config, modelFetch };
+          const modelConfig = {
+            ...this.config,
+            modelFetch,
+            ...(freeOnly && this.config.router
+              ? {
+                  router: {
+                    ...this.config.router,
+                    reviewModel: FREE_ROUTER_MODEL,
+                  },
+                }
+              : {}),
+          };
           let callLimit = 5;
           let selectedModel = this.config.model;
           let outputLimit = 2200;
@@ -424,7 +443,7 @@ export class DotAgent extends AbstractAgent {
                     throw new Error('Memory access revoked.');
                 })
               : []),
-            ...(this.config.router?.jevKey && modelFetch
+            ...(!freeOnly && this.config.router?.jevKey && modelFetch
               ? [
                   defineTool({
                     name: 'classify_with_jev',

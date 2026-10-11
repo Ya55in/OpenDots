@@ -1,3 +1,5 @@
+export const FREE_ROUTER_MODEL = '@preset/opendots-free';
+export const FREE_ROUTER_LABEL = 'OpenDots Free — Best First';
 export type RoutingMode = 'auto' | 'economy' | 'quality' | 'manual';
 export type RoutingTier =
   'routine' | 'standard' | 'reasoning' | 'complex' | 'expert';
@@ -15,7 +17,7 @@ export interface RoutingDecision {
 export interface RoutingStatus {
   enabled: boolean;
   jevConfigured: boolean;
-  models: { id: string; tier: RoutingTier }[];
+  models: { id: string; tier: RoutingTier; label?: string }[];
   dailyTurnLimit: number;
   dailyUsd?: number;
   turnUsd?: number;

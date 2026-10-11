@@ -1,3 +1,4 @@
+import { FREE_ROUTER_MODEL } from '../shared/routing';
 import { UsagePanel } from './UsagePanel';
 import { JevDecisions } from './JevDecisions';
 import { useEffect, useState } from 'react';
@@ -95,8 +96,8 @@ export function ModelRouting({
                 }
               >
                 {status.models.map((model) => (
-                  <option key={model.tier} value={model.id}>
-                    {model.tier}: {model.id}
+                  <option key={model.id} value={model.id}>
+                    {model.label ?? `${model.tier}: ${model.id}`}
                   </option>
                 ))}
               </select>
@@ -105,7 +106,9 @@ export function ModelRouting({
           <small>
             {preference.mode === 'auto'
               ? 'Local rules → Jev → Qwen → GLM → DeepSeek. Premium models require your explicit choice.'
-              : 'Your choice stays saved for this conversation. Change it to retry with a different model.'}
+              : preference.model === FREE_ROUTER_MODEL
+                ? 'Free models only, including document reviews. No Jev or paid model fallback. Free-provider availability and rate limits apply; external services may still charge.'
+                : 'Your choice stays saved for this conversation. Change it to retry with a different model.'}
           </small>
           {status.lastDecision && (
             <p>
@@ -118,8 +121,8 @@ export function ModelRouting({
       ) : (
         <ul>
           {status.models.map((model) => (
-            <li key={model.tier}>
-              {model.tier}: {model.id}
+            <li key={model.id}>
+              {model.label ?? `${model.tier}: ${model.id}`}
             </li>
           ))}
         </ul>
@@ -135,9 +138,11 @@ export function ModelRouting({
         review; external service fees are separate.
       </small>
       <UsagePanel threadId={threadId} />
-      {threadId && status.jevConfigured && (
-        <JevDecisions threadId={threadId} disabled={running || saving} />
-      )}
+      {threadId &&
+        status.jevConfigured &&
+        preference.model !== FREE_ROUTER_MODEL && (
+          <JevDecisions threadId={threadId} disabled={running || saving} />
+        )}
       {error && <p role="alert">{error}</p>}
     </div>
   );
