@@ -41,9 +41,13 @@ export interface OpenUISurface {
 // No expressions, queries, mutations, URLs, HTML, recursive trees or bindings.
 export function validateOpenUI(source: string): OpenUISurface {
   if (source.length > OPENUI_MAX_LENGTH) throw new Error('UI is too large.');
+  // Models often pretty-print JSON arrays. Split at assignment boundaries,
+  // not every physical newline; the complete arguments must still be JSON.
+  // Raw newlines inside quoted strings, expressions and extra statements fail
+  // the same literal validation below. Canonical output remains one line/node.
   const lines = source
     .trim()
-    .split('\n')
+    .split(/\n(?=\s*[a-z][a-z0-9_]{0,39}\s*=)/)
     .map((line) => line.trim())
     .filter(Boolean);
   if (!lines.length || lines.length > 25) throw new Error('Invalid UI size.');
@@ -54,10 +58,11 @@ export function validateOpenUI(source: string): OpenUISurface {
   let children: string[] = [];
   for (const line of lines) {
     const match =
-      /^([a-z][a-z0-9_]{0,39})\s*=\s*([A-Z][A-Za-z]*)\((.*)\);?$/.exec(line);
+      /^([a-z][a-z0-9_]{0,39})\s*=\s*([A-Z][A-Za-z]*)\((.*)\);?$/s.exec(line);
     if (!match || nodes.has(match[1]))
       throw new Error('Unsupported UI syntax.');
-    const [, id, name, raw] = match;
+    const [, id, name] = match;
+    const raw = match[3].trim();
     field.parse(id);
     if (name === 'Panel') {
       if (id !== 'root' || title !== undefined)

@@ -27,6 +27,33 @@ afterEach(async () => {
 });
 
 describe('OpenUI boundary', () => {
+  it('normalizes multiline model-generated tables before invoking the renderer', () => {
+    const multiline = `root = Panel("Pipeline snapshot", [note, deals, bars])
+note = Text("Illustrative only; actual revenue is not potential revenue.")
+deals = Table(["Deal", "Value", "Status"],
+[
+["Sample A", "60,000 MAD", "Unsigned"],
+["Sample B", "100,000 MAD", "Unconfirmed"]
+])
+bars = BarChart(
+  ["A", "B"],
+  [60, 100]
+)`;
+    const safe = validateOpenUI(multiline);
+    expect(safe.source.split('\n')).toHaveLength(4);
+    const parsed = createParser(
+      openUILibrary.toJSONSchema(),
+      openUILibrary.root,
+    ).parse(safe.source);
+    expect(parsed.meta.errors).toEqual([]);
+    expect(parsed.meta.unresolved).toEqual([]);
+    const html = renderToStaticMarkup(
+      <OpenUIBlock source={multiline} disabled={true} />,
+    );
+    expect(html).toContain('<h3>Pipeline snapshot</h3>');
+    expect(html).toContain('<td>Sample A</td>');
+    expect(html).not.toContain('Original response:');
+  });
   it('preserves form edits across transcript rerenders and updates the action callback', async () => {
     const messages = [
       {
@@ -129,6 +156,12 @@ describe('OpenUI boundary', () => {
     'root = Query("fetch", {})',
     'root = Panel("X", [a])\na = Mutation("delete", {})',
     'root = Panel("X", [a])\na = Text(fetch("https://evil.test"))',
+    'root = Panel("X", [a])\na = Text(\nfetch("https://evil.test")\n)',
+    'root = Panel("X", [a])\na = Table(["A"], [\n["x"]\n]); fetch("https://evil.test")',
+    'root = Panel("X", [a])\na = Text("literal\nroot = Panel("injected", [a])")',
+    'root = Panel("X", [a])\na = Table(["A"], [\n' +
+      Array.from({ length: 31 }, () => '["x"]').join(',\n') +
+      '\n])',
     'root = Panel("X", [a])\na = Text(@OpenUrl("javascript:alert(1)"))',
     'root = Panel("X", [root])',
     'root = Panel("X", [a, a])\na = Text("x")',

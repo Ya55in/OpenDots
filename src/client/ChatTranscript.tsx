@@ -38,7 +38,15 @@ function MessagePre({ children }: { children?: ReactNode }) {
     return (
       <OpenUIBoundary
         key={children.props.children}
-        fallback={<pre>{children}</pre>}
+        fallback={
+          <div className="openui-fallback">
+            <p role="status">
+              The interactive view could not load. Copy any unsent message, then
+              reload this page to retry.
+            </p>
+            <pre>{children}</pre>
+          </div>
+        }
       >
         <Suspense fallback={<pre>{children}</pre>}>
           <OpenUIBlock
