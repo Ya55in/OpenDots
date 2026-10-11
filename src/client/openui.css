@@ -103,3 +103,15 @@
   background: #8b80e8;
   margin-top: 0.2rem;
 }
+
+.openui-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: 0.8rem;
+  min-width: 0;
+}
+.openui-surface section section {
+  border-top: 1px solid currentColor;
+  padding-top: 0.8rem;
+  min-width: 0;
+}
