@@ -43,6 +43,8 @@ import { Mascot } from './Mascot';
 import { useVoice } from './useVoice';
 import { CallView } from './CallView';
 import { shouldSubmitComposerOnKeyDown } from './chat-composer';
+import { OPENUI_VERSION } from '../shared/openui';
+import './openui.css';
 
 export function Chat({
   thread,
@@ -108,6 +110,23 @@ export function Chat({
   const [error, setError] = useState('');
   const [loaded, setLoaded] = useState(false);
   const [running, setRunning] = useState(false);
+  const sending = useRef(false);
+  const [openUI, setOpenUI] = useState(false);
+  const [openUIAvailable, setOpenUIAvailable] = useState(false);
+  useEffect(() => {
+    let active = true;
+    setOpenUI(false);
+    void api<{ openui?: boolean }>('/session')
+      .then((session) => {
+        if (active) setOpenUIAvailable(session.openui === true);
+      })
+      .catch(() => {
+        if (active) setOpenUIAvailable(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [thread.id]);
   const voice = useVoice(thread.id, onSaved, agent.messages.at(-1)?.id);
   const sent = useRef(false);
   const bottom = useRef<HTMLDivElement>(null);
@@ -145,24 +164,31 @@ export function Chat({
     if (
       (!text.trim() && !attachments.length) ||
       running ||
+      sending.current ||
       !loaded ||
       !contextReady ||
       paused
     )
       return;
     setError('');
+    sending.current = true;
     setRunning(true);
-    agent.addMessage({
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: contextualMessage(fileMessage(text, attachments), pageContext),
-    });
-    setDraft('');
-    setAttachments([]);
-    setSource('');
-    setSourceOpen(false);
     try {
-      const result = await copilotkit.runAgent({ agent });
+      agent.addMessage({
+        id: crypto.randomUUID(),
+        role: 'user',
+        content: contextualMessage(fileMessage(text, attachments), pageContext),
+      });
+      setDraft('');
+      setAttachments([]);
+      setSource('');
+      setSourceOpen(false);
+      const result = await copilotkit.runAgent({
+        agent,
+        ...(openUI && openUIAvailable
+          ? { forwardedProps: { openui: OPENUI_VERSION } }
+          : {}),
+      });
       if (!result.newMessages.some((message) => message.role === 'assistant'))
         throw new Error(
           'The current turn returned no response. Check the runtime connection and retry.',
@@ -175,6 +201,7 @@ export function Chat({
           : 'The turn failed. Your conversation remains saved.',
       );
     } finally {
+      sending.current = false;
       setRunning(false);
     }
   };
@@ -347,6 +374,17 @@ export function Chat({
         </div>
       </header>
       <ModelRouting threadId={thread.id} running={running} />
+      {openUIAvailable && (
+        <label className="openui-option">
+          <input
+            type="checkbox"
+            checked={openUI}
+            disabled={running}
+            onChange={(event) => setOpenUI(event.target.checked)}
+          />
+          Interactive responses (optional)
+        </label>
+      )}
       {pageContext && (
         <div className="page-chat-context">
           Working on{' '}
@@ -367,6 +405,34 @@ export function Chat({
           </div>
         )}
         <ChatTranscript
+          openUI={openUI && openUIAvailable}
+          actionsDisabled={
+            running ||
+            !loaded ||
+            !contextReady ||
+            paused ||
+            voice.status !== 'idle'
+          }
+          onOpenUIDraft={(text) => {
+            if (
+              running ||
+              sending.current ||
+              !loaded ||
+              !contextReady ||
+              paused ||
+              voice.status !== 'idle'
+            )
+              return;
+            // Preserve text already typed and any pending attachments/source.
+            const next = draft.trim() ? `${draft}\n\n${text}` : text;
+            if (next.length > 4000) {
+              setError(
+                'The combined message is too long. Shorten your draft or form values and try again.',
+              );
+              throw new Error('Message too long.');
+            }
+            setDraft(next);
+          }}
           renderExport={(message) => (
             <DocumentExport
               markdown={String(message.content)}

@@ -130,7 +130,10 @@ export function createApp({
     );
   };
   app.get('/api/session', (c) =>
-    c.json({ isAdmin: isAdmin(c.req.header('authorization')) }),
+    c.json({
+      isAdmin: isAdmin(c.req.header('authorization')),
+      openui: !!platform && platform.config.openuiEnabled !== false,
+    }),
   );
   app.use('/api/admin/*', async (c, next) => {
     if (!isAdmin(c.req.header('authorization')))

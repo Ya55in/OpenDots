@@ -36,6 +36,7 @@ function firstNonEmptyEnvValue(
 }
 
 export interface PlatformConfig extends WebConfig {
+  openuiEnabled?: boolean;
   router?: RouterConfig;
   modelFetch?: typeof fetch;
   intelligenceKey?: string;

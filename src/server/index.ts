@@ -36,6 +36,7 @@ const router = routerConfigFromEnv(process.env);
 if (process.env.PREPARE_BUSINESS_AGENTS === 'true')
   prepareBusinessProfiles(workspace);
 const config: PlatformConfig = {
+  openuiEnabled: process.env.OPENUI_ENABLED !== 'false',
   router,
   intelligenceKey: intelligenceApiKeyFromEnv(process.env),
   intelligenceApiUrl: process.env.INTELLIGENCE_API_URL || undefined,

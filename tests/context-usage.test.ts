@@ -122,7 +122,7 @@ it('owner usage endpoint rejects unauthenticated, wrong-token and anonymous loca
   }
   const headers = { authorization: 'Bearer owner-secret' };
   expect(await (await app.request('/api/session', { headers })).json()).toEqual(
-    { isAdmin: true },
+    { isAdmin: true, openui: true },
   );
   const id = ws.routing.reserveSpend(
     { dotId: 'd', threadId: 't', runId: 'r' },
@@ -158,6 +158,7 @@ it('owner usage endpoint rejects unauthenticated, wrong-token and anonymous loca
   expect((await local.request('/api/admin/usage')).status).toBe(403);
   expect(await (await local.request('/api/session')).json()).toEqual({
     isAdmin: false,
+    openui: true,
   });
 });
 it('preserves prompt text, uses stable private session identifiers and reports streaming token/cache usage', async () => {
