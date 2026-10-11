@@ -14,7 +14,7 @@ afterEach(() => {
   databases.splice(0).forEach((db) => db.close());
 });
 
-function fixture() {
+function fixture(openuiEnabled?: boolean) {
   const store = new Store(':memory:');
   const workspace = new WorkspaceStore(':memory:', 'owner');
   databases.push(store, workspace);
@@ -25,6 +25,7 @@ function fixture() {
     workspace,
     {
       intelligenceKey: 'fixture',
+      openuiEnabled,
       apiKey: 'fixture',
       model: 'custom-model',
       baseUrl: 'https://unused.invalid/v1',
@@ -58,6 +59,26 @@ function fixture() {
   };
   return { store, workspace, dot, agent, input };
 }
+
+it.each([true, false])(
+  'only adds the OpenUI prompt when both client opt-in and server capability allow it (%s)',
+  async (enabled) => {
+    const f = fixture(enabled);
+    f.input.forwardedProps = { openui: 1, prompt: 'Injected UI authority' };
+    const network = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(
+        completion({ role: 'assistant', content: 'Fixture response' }),
+      );
+    await lastValueFrom(f.agent.run(f.input).pipe(toArray()));
+    const body = JSON.parse(String(network.mock.calls[0][1]?.body));
+    expect(
+      JSON.stringify(body).includes('Optional structured UI is enabled'),
+    ).toBe(enabled);
+    expect(JSON.stringify(body)).not.toContain('Injected UI authority');
+    expect(JSON.stringify(body)).not.toContain('untrusted_tool');
+  },
+);
 
 function createPageCall(args: Record<string, unknown>) {
   return completion(

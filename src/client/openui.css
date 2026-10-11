@@ -1,0 +1,100 @@
+.openui-option {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+}
+.openui-surface {
+  white-space: normal;
+  border: 1px solid currentColor;
+  border-radius: 12px;
+  padding: 1rem;
+  margin: 0.75rem 0;
+  overflow-wrap: anywhere;
+}
+.openui-surface fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.openui-surface fieldset:disabled {
+  opacity: 0.7;
+}
+.openui-surface section {
+  display: grid;
+  gap: 0.8rem;
+}
+.openui-surface h3,
+.openui-surface p {
+  margin: 0;
+}
+.openui-surface label {
+  display: grid;
+  gap: 0.3rem;
+}
+.openui-surface input,
+.openui-surface select,
+.openui-surface button {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 7px;
+  padding: 0.6rem;
+  min-width: 0;
+  max-width: 100%;
+}
+.openui-surface button {
+  cursor: pointer;
+  text-align: left;
+}
+.openui-surface button:disabled {
+  cursor: default;
+}
+.openui-surface small {
+  display: block;
+  margin-top: 0.8rem;
+  opacity: 0.8;
+}
+.openui-surface details {
+  margin-top: 0.8rem;
+}
+.openui-surface pre,
+.openui-fallback pre {
+  white-space: pre-wrap;
+  max-height: 20rem;
+  overflow: auto;
+}
+.openui-metric {
+  display: grid;
+  padding: 0.7rem;
+  border-left: 3px solid #8b80e8;
+}
+.openui-metric strong {
+  font-size: 1.4rem;
+}
+.openui-table {
+  overflow-x: auto;
+}
+.openui-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.openui-table th,
+.openui-table td {
+  padding: 0.5rem;
+  border-bottom: 1px solid currentColor;
+  text-align: left;
+}
+.openui-bars {
+  display: grid;
+  gap: 0.6rem;
+}
+.openui-bars > div > div {
+  height: 0.6rem;
+  border-radius: 3px;
+  background: #8b80e8;
+  margin-top: 0.2rem;
+}

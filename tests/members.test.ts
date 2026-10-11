@@ -80,7 +80,10 @@ it('filters members to intersected agents and Spaces, excludes owner data, and d
   expect(state.conversations).toEqual([]);
   expect(state.calls).toEqual([]);
   expect((await (await f.req('/state')).json()).memories).toEqual([]);
-  expect(await (await f.req('/session')).json()).toEqual({ isAdmin: false });
+  expect(await (await f.req('/session')).json()).toEqual({
+    isAdmin: false,
+    openui: true,
+  });
   for (const [path, method, body] of [
     ['/admin/usage', 'GET', undefined],
     ['/admin/members', 'GET', undefined],

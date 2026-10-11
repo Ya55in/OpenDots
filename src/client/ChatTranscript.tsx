@@ -1,4 +1,15 @@
-import { useState } from 'react';
+import {
+  createContext,
+  useContext,
+  isValidElement,
+  lazy,
+  Suspense,
+  useState,
+} from 'react';
+import { OpenUIBoundary } from './OpenUIBoundary';
+const OpenUIBlock = lazy(() =>
+  import('./OpenUIBlock').then((module) => ({ default: module.OpenUIBlock })),
+);
 import { downloadDocument, fileDownloadPath } from './document-download';
 import remarkGfm from 'remark-gfm';
 import { displayFileMessage } from './file-message';
@@ -10,6 +21,37 @@ import type { AssistantMessage, Message } from '@ag-ui/core';
 import type { CallReceipt } from '../shared/types';
 import { voiceReceiptMessagePrefix } from '../shared/voice-receipt';
 import { isScheduledTaskMessage } from '../shared/scheduled-message';
+const OpenUIContext = createContext<{
+  enabled: boolean;
+  disabled: boolean;
+  onDraft?: (draft: string) => void;
+}>({ enabled: false, disabled: true });
+// Stable component identity preserves unfinished form edits across chat renders.
+function MessagePre({ children }: { children?: ReactNode }) {
+  const { enabled, disabled, onDraft } = useContext(OpenUIContext);
+  if (
+    enabled &&
+    isValidElement<{ className?: string; children?: ReactNode }>(children) &&
+    children.props.className === 'language-openui' &&
+    typeof children.props.children === 'string'
+  ) {
+    return (
+      <OpenUIBoundary
+        key={children.props.children}
+        fallback={<pre>{children}</pre>}
+      >
+        <Suspense fallback={<pre>{children}</pre>}>
+          <OpenUIBlock
+            source={children.props.children}
+            disabled={disabled}
+            onDraft={onDraft}
+          />
+        </Suspense>
+      </OpenUIBoundary>
+    );
+  }
+  return <pre>{children}</pre>;
+}
 // These markers only control rendering; they do not confer trust or permissions.
 export function isInternalVoiceReceipt(message: Message): boolean {
   const metadata = message.metadata;
@@ -42,11 +84,17 @@ export function ChatTranscript({
   calls,
   renderTools,
   renderExport,
+  openUI = false,
+  actionsDisabled = true,
+  onOpenUIDraft,
 }: {
   messages: Message[];
   calls: CallReceipt[];
   renderTools?: (message: AssistantMessage) => ReactNode;
   renderExport?: (message: AssistantMessage) => ReactNode;
+  openUI?: boolean;
+  actionsDisabled?: boolean;
+  onOpenUIDraft?: (draft: string) => void;
 }) {
   const [downloadError, setDownloadError] = useState('');
   const ids = new Set(messages.map((message) => message.id));
@@ -73,40 +121,49 @@ export function ChatTranscript({
               {isScheduledTaskMessage(message) && (
                 <span className="scheduled-message-label">Scheduled</span>
               )}
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  img: ({ alt }) => <span>{alt}</span>,
-                  a: ({ href, children }) => (
-                    <a
-                      onClick={(event) => {
-                        const file = fileDownloadPath(href);
-                        if (file) {
-                          event.preventDefault();
-                          setDownloadError('');
-                          void downloadDocument(file, 'Document').catch((e) =>
-                            setDownloadError(e.message),
-                          );
-                        } else if (href?.startsWith('/#/spaces/')) {
-                          event.preventDefault();
-                          openPageLink(href);
-                        }
-                      }}
-                      href={href}
-                      target={
-                        href?.startsWith('/#/spaces/') ? undefined : '_blank'
-                      }
-                      rel="noreferrer"
-                    >
-                      {children}
-                    </a>
-                  ),
+              <OpenUIContext.Provider
+                value={{
+                  enabled: openUI && message.role === 'assistant',
+                  disabled: actionsDisabled,
+                  onDraft: onOpenUIDraft,
                 }}
               >
-                {message.role === 'user'
-                  ? displayFileMessage(message.content)
-                  : message.content}
-              </ReactMarkdown>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    pre: MessagePre,
+                    img: ({ alt }) => <span>{alt}</span>,
+                    a: ({ href, children }) => (
+                      <a
+                        onClick={(event) => {
+                          const file = fileDownloadPath(href);
+                          if (file) {
+                            event.preventDefault();
+                            setDownloadError('');
+                            void downloadDocument(file, 'Document').catch((e) =>
+                              setDownloadError(e.message),
+                            );
+                          } else if (href?.startsWith('/#/spaces/')) {
+                            event.preventDefault();
+                            openPageLink(href);
+                          }
+                        }}
+                        href={href}
+                        target={
+                          href?.startsWith('/#/spaces/') ? undefined : '_blank'
+                        }
+                        rel="noreferrer"
+                      >
+                        {children}
+                      </a>
+                    ),
+                  }}
+                >
+                  {message.role === 'user'
+                    ? displayFileMessage(message.content)
+                    : message.content}
+                </ReactMarkdown>
+              </OpenUIContext.Provider>
               {message.role === 'assistant' && renderExport?.(message)}
             </div>
           )}

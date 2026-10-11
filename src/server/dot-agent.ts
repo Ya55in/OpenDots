@@ -1,4 +1,5 @@
 import { memberContext } from './members.js';
+import { OPENUI_PROMPT, openUIRequested } from '../shared/openui.js';
 import { taskContextTools } from './task-context.js';
 import { decisionInput, decideWithJev } from './jev-decisions.js';
 import { documentTools } from './document-service.js';
@@ -494,6 +495,13 @@ export class DotAgent extends AbstractAgent {
                 messages: converted.messages,
                 systemPrompts: [
                   prompt,
+                  ...(openUIRequested(
+                    this.config.openuiEnabled,
+                    this.channel,
+                    input.forwardedProps,
+                  )
+                    ? [OPENUI_PROMPT]
+                    : []),
                   ...converted.systemPrompts,
                   ...(ctx.learnedSkills.catalog
                     ? [ctx.learnedSkills.catalog]
