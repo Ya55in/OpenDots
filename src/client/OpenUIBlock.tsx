@@ -144,23 +144,20 @@ const Select = defineComponent({
     );
   },
 });
+// Containers receive only the bounded, fully validated tree from validateOpenUI.
+// References may target either container, so resolution is delegated to OpenUI.
+const Row = defineComponent({
+  name: 'Row',
+  description: 'Responsive group of components',
+  props: z.object({ children: z.array(z.unknown()) }),
+  component: ({ props, renderNode }) => (
+    <div className="openui-row">{renderNode(props.children)}</div>
+  ),
+});
 const Panel = defineComponent({
   name: 'Panel',
-  description: 'Structured response',
-  props: z.object({
-    title: z.string(),
-    children: z.array(
-      z.union([
-        Text.ref,
-        Metric.ref,
-        Table.ref,
-        BarChart.ref,
-        Choice.ref,
-        Input.ref,
-        Select.ref,
-      ]),
-    ),
-  }),
+  description: 'Titled section of a structured response',
+  props: z.object({ title: z.string(), children: z.array(z.unknown()) }),
   component: ({ props, renderNode }) => (
     <section>
       <h3>{props.title}</h3>
@@ -169,7 +166,17 @@ const Panel = defineComponent({
   ),
 });
 export const openUILibrary = createLibrary({
-  components: [Panel, Text, Metric, Table, BarChart, Choice, Input, Select],
+  components: [
+    Panel,
+    Row,
+    Text,
+    Metric,
+    Table,
+    BarChart,
+    Choice,
+    Input,
+    Select,
+  ],
   root: 'Panel',
 });
 
