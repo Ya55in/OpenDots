@@ -12,7 +12,9 @@ const mocks = vi.hoisted(() => {
     copilotkit: {
       subscribe: vi.fn(() => ({ unsubscribe() {} })),
       connectAgent: vi.fn(async () => {}),
-      runAgent: vi.fn(async () => ({ newMessages: [{ role: 'assistant' }] })),
+      runAgent: vi.fn(async () => ({
+        newMessages: [{ role: 'assistant', content: 'Ready' }],
+      })),
       stopAgent: vi.fn(),
     },
     api: vi.fn(async (path: string, method?: string, body?: unknown) =>
@@ -167,4 +169,23 @@ it('loads the saved agent preference before sending an initial prompt', async ()
     agent: mocks.agent,
     forwardedProps: { openui: 1 },
   });
+});
+
+it('reports empty assistant messages as failed instead of silently completing', async () => {
+  mocks.copilotkit.runAgent.mockResolvedValueOnce({
+    newMessages: [{ role: 'assistant', content: '' }],
+  });
+  await act(async () => {
+    root = create(<Chat {...props} />);
+  });
+  await act(async () =>
+    root!.root
+      .findByType('textarea')
+      .props.onChange({ target: { value: 'Draft my order' } }),
+  );
+  await act(async () =>
+    root!.root.findByType('form').props.onSubmit({ preventDefault() {} }),
+  );
+  expect(JSON.stringify(root!.toJSON())).toContain('without a readable answer');
+  expect(props.onSaved).not.toHaveBeenCalled();
 });

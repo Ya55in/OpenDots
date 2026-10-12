@@ -274,3 +274,39 @@ it('free preset enforces zero prices, strips paid fallbacks, and blocks paid aux
     ws.close();
   }
 });
+
+it('reserves fast-model output for answers and reports truncation after settling streamed usage', async () => {
+  const ws = new WorkspaceStore(':memory:', 'owner');
+  try {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response(
+          'data: {"choices":[{"delta":{},"finish_reason":"length"}]}\n\n' +
+            'data: {"usage":{"cost":0.002,"completion_tokens":4000}}\n\ndata: [DONE]\n\n',
+          { headers: { 'Content-Type': 'text/event-stream' } },
+        ),
+      );
+    const response = await budgetFetch(
+      ws.routing,
+      config,
+      { runId: 'truncated', dotId: 'dot', threadId: 'thread' },
+      request,
+    )('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      body: JSON.stringify({
+        model: 'z-ai/glm-5.3-flash',
+        messages: [{ role: 'user', content: 'Draft a purchase order' }],
+        max_tokens: 8000,
+        stream: true,
+      }),
+    });
+    expect(
+      JSON.parse(String(request.mock.calls[0][1]?.body)).reasoning,
+    ).toEqual({ enabled: false });
+    await expect(response.text()).rejects.toThrow('output limit');
+    expect(ws.routing.spending().charged).toBe(0.002);
+  } finally {
+    ws.close();
+  }
+});
