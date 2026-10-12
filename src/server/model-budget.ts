@@ -84,10 +84,12 @@ export function budgetFetch(
       const output = Number(body.max_tokens ?? body.max_completion_tokens);
       if (!Number.isInteger(output) || output < 1 || output > 24000)
         throw new Error('A bounded model output allowance is required.');
-      // Fast everyday models must leave the output budget for the answer,
-      // rather than silently spending all of it on hidden reasoning.
-      if (['qwen/qwen3.8-flash', 'z-ai/glm-5.3-flash'].includes(body.model))
+      // Match each model's published reasoning capabilities: GLM requires
+      // reasoning and defaults to max, while Qwen allows disabling it.
+      if (body.model === 'qwen/qwen3.8-flash')
         body.reasoning = { enabled: false };
+      if (body.model === 'z-ai/glm-5.3-flash')
+        body.reasoning = { effort: 'low' };
       // UTF-8 bytes conservatively bound ordinary text tokens; reserve extra
       // framing/schema overhead and 32k tokens for each bounded preview image.
       const input = Buffer.byteLength(text) + 8192 + imageCount * 32768;
