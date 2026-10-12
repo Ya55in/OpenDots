@@ -85,14 +85,20 @@ const artifact =
   /\b(pptx|docx|presentation|présentation|slides?|diapositiv\w*|powerpoint|pdf|template|modèle|génèr\w*|generat\w*)\b/i;
 export function taskLimits(text: string, tier: RoutingTier) {
   const document = artifact.test(text);
+  const businessDocument =
+    /\b(bon de commande|purchase order|devis|facture|invoice|rapport|report|proposition commerciale)\b/i.test(
+      text,
+    );
   return {
     output: document
       ? 20000
-      : tier === 'routine'
-        ? 2000
-        : tier === 'standard'
-          ? 4000
-          : 8000,
+      : businessDocument
+        ? 8000
+        : tier === 'routine'
+          ? 2000
+          : tier === 'standard'
+            ? 4000
+            : 8000,
     calls: document ? 12 : tier === 'routine' ? 3 : 6,
   };
 }

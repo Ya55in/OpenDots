@@ -110,6 +110,18 @@ export function Chat({
   const [error, setError] = useState('');
   const [loaded, setLoaded] = useState(false);
   const [running, setRunning] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const runError = useRef('');
+  useEffect(() => {
+    if (!running) return;
+    const start = Date.now();
+    setElapsed(0);
+    const timer = setInterval(
+      () => setElapsed(Math.floor((Date.now() - start) / 1000)),
+      1000,
+    );
+    return () => clearInterval(timer);
+  }, [running]);
   const sending = useRef(false);
   const [openUI, setOpenUI] = useState(false);
   const [openUIAvailable, setOpenUIAvailable] = useState(false);
@@ -120,8 +132,18 @@ export function Chat({
     setOpenUI(false);
     setPreferencesReady(false);
     void Promise.all([
-      api<{ openui?: boolean }>('/session'),
-      api<{ interactive: boolean }>(`/dots/${dot.id}/chat-preferences`),
+      api<{ openui?: boolean }>(
+        '/session',
+        'GET',
+        undefined,
+        AbortSignal.timeout(8000),
+      ),
+      api<{ interactive: boolean }>(
+        `/dots/${dot.id}/chat-preferences`,
+        'GET',
+        undefined,
+        AbortSignal.timeout(8000),
+      ),
     ])
       .then(([session, preference]) => {
         if (active) {
@@ -151,7 +173,10 @@ export function Chat({
       onError: ({ error }) => setError(error.message),
     });
     const events = agent.subscribe({
-      onRunErrorEvent: ({ event }) => setError(event.message),
+      onRunErrorEvent: ({ event }) => {
+        runError.current = event.message;
+        setError(event.message);
+      },
     });
     return () => {
       subscription.unsubscribe();
@@ -189,6 +214,7 @@ export function Chat({
     )
       return;
     setError('');
+    runError.current = '';
     sending.current = true;
     setRunning(true);
     try {
@@ -207,9 +233,21 @@ export function Chat({
           ? { forwardedProps: { openui: OPENUI_VERSION } }
           : {}),
       });
-      if (!result.newMessages.some((message) => message.role === 'assistant'))
+      if (runError.current) throw new Error(runError.current);
+      if (
+        !result.newMessages.some(
+          (message) =>
+            message.role === 'assistant' &&
+            ((typeof message.content === 'string' && message.content.trim()) ||
+              message.toolCalls?.some((call) =>
+                [pageReviewTool.name, connectionActionTool.name].includes(
+                  call.function.name,
+                ),
+              )),
+        )
+      )
         throw new Error(
-          'The current turn returned no response. Check the runtime connection and retry.',
+          'The model finished without a readable answer. Your request is saved. Ask it to continue, or change the model in Chat options.',
         );
       onSaved();
     } catch (e) {
@@ -419,6 +457,7 @@ export function Chat({
                       `/dots/${dot.id}/chat-preferences`,
                       'PUT',
                       { interactive },
+                      AbortSignal.timeout(8000),
                     );
                     setOpenUI(saved.interactive);
                   } catch {
@@ -517,11 +556,20 @@ export function Chat({
             <span />
             <span />
             <span />
-            <span>{dot.name} is thinking</span>
+            <span>
+              {dot.name} is working · {elapsed}s
+              {elapsed >= 30 ? ' · You can stop this response below.' : ''}
+            </span>
           </div>
         )}
         <div ref={bottom} />
       </div>
+      {!running && loaded && !error && visible.at(-1)?.role === 'user' && (
+        <div className="chat-error" role="status">
+          No completed answer follows your last message. Your request is saved.
+          You can ask the agent to continue or change its model in Chat options.
+        </div>
+      )}
       {contextError && (
         <div className="chat-error" role="alert">
           {contextError}

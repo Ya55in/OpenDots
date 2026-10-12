@@ -84,6 +84,10 @@ export function budgetFetch(
       const output = Number(body.max_tokens ?? body.max_completion_tokens);
       if (!Number.isInteger(output) || output < 1 || output > 24000)
         throw new Error('A bounded model output allowance is required.');
+      // Fast everyday models must leave the output budget for the answer,
+      // rather than silently spending all of it on hidden reasoning.
+      if (['qwen/qwen3.8-flash', 'z-ai/glm-5.3-flash'].includes(body.model))
+        body.reasoning = { enabled: false };
       // UTF-8 bytes conservatively bound ordinary text tokens; reserve extra
       // framing/schema overhead and 32k tokens for each bounded preview image.
       const input = Buffer.byteLength(text) + 8192 + imageCount * 32768;
@@ -144,8 +148,13 @@ export function budgetFetch(
       finish('failed');
       return response;
     } // Retain unconfirmed charges.
+    let truncated = false;
     const settle = (value: unknown) => {
       if (!value || typeof value !== 'object') return;
+      const choices = (value as { choices?: Array<{ finish_reason?: string }> })
+        .choices;
+      if (choices?.some((choice) => choice.finish_reason === 'length'))
+        truncated = true;
       const usage = (
         value as { usage?: Parameters<RoutingStore['recordUsage']>[1] }
       ).usage;
@@ -157,6 +166,12 @@ export function budgetFetch(
         .json()
         .catch(() => null);
       settle(value);
+      if (truncated) {
+        finish('failed');
+        throw new Error(
+          'The model reached its output limit before completing the answer. Your conversation is saved. Ask it to continue, or select another model in Chat options.',
+        );
+      }
       finish('complete');
       return response;
     }
@@ -201,6 +216,10 @@ export function budgetFetch(
         try {
           const { value, done } = await reader.read();
           if (done) {
+            if (truncated)
+              throw new Error(
+                'The model reached its output limit before completing the answer. Your conversation is saved. Ask it to continue, or select another model in Chat options.',
+              );
             finish('complete');
             controller.close();
           } else controller.enqueue(value);
