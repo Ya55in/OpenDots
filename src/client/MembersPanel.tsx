@@ -23,6 +23,8 @@ export function MembersPanel({ workspace }: { workspace: WorkspaceState }) {
     [id, setId] = useState<string>(),
     [code, setCode] = useState(''),
     [error, setError] = useState(''),
+    [search, setSearch] = useState(''),
+    [editing, setEditing] = useState(false),
     [busy, setBusy] = useState(false);
   const refresh = async () => setMembers(await api<Member[]>('/admin/members'));
   useEffect(() => {
@@ -45,6 +47,7 @@ export function MembersPanel({ workspace }: { workspace: WorkspaceState }) {
       await refresh();
       setId(undefined);
       setDraft(empty);
+      setEditing(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save member.');
     } finally {
@@ -96,116 +99,155 @@ export function MembersPanel({ workspace }: { workspace: WorkspaceState }) {
         connected-account management, computers, voice and consumption remain
         private.
       </p>
-      {members.map((member) => (
-        <div className="member-row" key={member.id}>
-          <span>
-            <strong>{member.name}</strong>
-            <small>
-              {member.active ? 'Active' : 'Revoked'} · {member.dotIds.length}{' '}
-              agents · {member.spaceIds.length} Spaces
-            </small>
-          </span>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              setId(member.id);
-              setDraft({
-                name: member.name,
-                email: member.email ?? '',
-                dotIds: member.dotIds,
-                spaceIds: member.spaceIds,
-                active: member.active,
-              });
-              setCode('');
-            }}
-          >
-            Edit access
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void rotate(member)}
-          >
-            Replace code
-          </button>
-        </div>
-      ))}
-      <h4>{id ? 'Edit membership' : 'Create member'}</h4>
-      <label>
-        Name
+      <div className="member-toolbar">
         <input
-          aria-label="Member name"
-          value={draft.name}
-          maxLength={80}
-          onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+          aria-label="Search members"
+          placeholder="Search by name or email…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
         />
-      </label>
-      <label>
-        Email (optional contact label)
-        <input
-          aria-label="Member email"
-          type="email"
-          value={draft.email}
-          onChange={(e) => setDraft({ ...draft, email: e.target.value })}
-        />
-      </label>
-      <fieldset>
-        <legend>Agents</legend>
-        {workspace.dots.map((dot) => (
-          <label className="permission-row" key={dot.id}>
-            <input
-              type="checkbox"
-              checked={draft.dotIds.includes(dot.id)}
-              onChange={() => toggle('dotIds', dot.id)}
-            />
-            {dot.name}
-          </label>
-        ))}
-      </fieldset>
-      <fieldset>
-        <legend>Spaces</legend>
-        {workspace.spaces.map((space) => (
-          <label className="permission-row" key={space.id}>
-            <input
-              type="checkbox"
-              checked={draft.spaceIds.includes(space.id)}
-              onChange={() => toggle('spaceIds', space.id)}
-            />
-            {space.name}
-          </label>
-        ))}
-      </fieldset>
-      <p className="muted">
-        Select at least one Space already assigned to each selected agent. A
-        member’s agent access is limited to the intersection of those
-        permissions.
-      </p>
-      <label className="permission-row">
-        <input
-          type="checkbox"
-          checked={draft.active}
-          onChange={(e) => setDraft({ ...draft, active: e.target.checked })}
-        />
-        Access active — uncheck to revoke
-      </label>
-      <button
-        type="button"
-        disabled={busy || !draft.name.trim()}
-        onClick={() => void save()}
-      >
-        {busy ? 'Saving…' : id ? 'Save access' : 'Create member access'}
-      </button>
-      {id && (
         <button
           type="button"
           onClick={() => {
             setId(undefined);
             setDraft(empty);
+            setEditing(true);
+            setCode('');
           }}
         >
-          Cancel edit
+          Add member
         </button>
+      </div>
+      <p className="muted">
+        {members.filter((m) => m.active).length} active · {members.length} total
+      </p>
+      {!members.length && (
+        <p>
+          No members yet. Add a colleague and choose their agents and Spaces.
+        </p>
+      )}
+      {members
+        .filter((member) =>
+          `${member.name} ${member.email ?? ''}`
+            .toLowerCase()
+            .includes(search.toLowerCase()),
+        )
+        .map((member) => (
+          <div className="member-row" key={member.id}>
+            <span>
+              <strong>{member.name}</strong>
+              <small>
+                {member.active ? 'Active' : 'Revoked'} · {member.dotIds.length}{' '}
+                agents · {member.spaceIds.length} Spaces
+              </small>
+            </span>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setId(member.id);
+                setEditing(true);
+                setDraft({
+                  name: member.name,
+                  email: member.email ?? '',
+                  dotIds: member.dotIds,
+                  spaceIds: member.spaceIds,
+                  active: member.active,
+                });
+                setCode('');
+              }}
+            >
+              Edit access
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void rotate(member)}
+            >
+              Replace code
+            </button>
+          </div>
+        ))}
+      {editing && (
+        <div className="member-editor settings-card">
+          <h4>{id ? 'Edit membership' : 'Create member'}</h4>
+          <label>
+            Name
+            <input
+              aria-label="Member name"
+              value={draft.name}
+              maxLength={80}
+              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+            />
+          </label>
+          <label>
+            Email (optional contact label)
+            <input
+              aria-label="Member email"
+              type="email"
+              value={draft.email}
+              onChange={(e) => setDraft({ ...draft, email: e.target.value })}
+            />
+          </label>
+          <fieldset>
+            <legend>Agents</legend>
+            {workspace.dots.map((dot) => (
+              <label className="permission-row" key={dot.id}>
+                <input
+                  type="checkbox"
+                  checked={draft.dotIds.includes(dot.id)}
+                  onChange={() => toggle('dotIds', dot.id)}
+                />
+                {dot.name}
+              </label>
+            ))}
+          </fieldset>
+          <fieldset>
+            <legend>Spaces</legend>
+            {workspace.spaces.map((space) => (
+              <label className="permission-row" key={space.id}>
+                <input
+                  type="checkbox"
+                  checked={draft.spaceIds.includes(space.id)}
+                  onChange={() => toggle('spaceIds', space.id)}
+                />
+                {space.name}
+              </label>
+            ))}
+          </fieldset>
+          <p className="muted">
+            Select at least one Space already assigned to each selected agent. A
+            member’s agent access is limited to the intersection of those
+            permissions.
+          </p>
+          <label className="permission-row">
+            <input
+              type="checkbox"
+              checked={draft.active}
+              onChange={(e) => setDraft({ ...draft, active: e.target.checked })}
+            />
+            Access active — uncheck to revoke
+          </label>
+          <button
+            type="button"
+            disabled={busy || !draft.name.trim()}
+            onClick={() => void save()}
+          >
+            {busy ? 'Saving…' : id ? 'Save access' : 'Create member access'}
+          </button>
+          {editing && (
+            <button
+              type="button"
+              onClick={() => {
+                setId(undefined);
+                setDraft(empty);
+                setEditing(false);
+              }}
+            >
+              Cancel edit
+            </button>
+          )}
+        </div>
       )}
       {error && <p role="alert">{error}</p>}
       {code && (

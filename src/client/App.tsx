@@ -1,3 +1,4 @@
+import { SettingsPage } from './SettingsPage';
 import { openPageLink } from './page-navigation';
 import { SpaceNav } from './SpaceNav';
 import { SpaceWorkspace } from './SpaceWorkspace';
@@ -62,9 +63,9 @@ export function App() {
   const [workspace, setWorkspace] = useState<WorkspaceState>();
   const [selectedDot, setSelectedDot] = useState('');
   const [selectedThread, setSelectedThread] = useState<string>();
-  const [view, rawSetView] = useState<'chat' | 'tasks' | 'memories' | 'space'>(
-    'chat',
-  );
+  const [view, rawSetView] = useState<
+    'chat' | 'tasks' | 'memories' | 'space' | 'settings'
+  >('chat');
   const dirtyPage = useRef(false);
   const [spaceId, setSpaceId] = useState('');
   const [pageId, setPageId] = useState<string>();
@@ -371,9 +372,9 @@ export function App() {
         <button
           className="rail-settings"
           aria-label="Open settings"
-          hidden={!isAdmin}
           onClick={() => {
-            if (isAdmin) setDialog({ type: 'settings' });
+            setView('settings');
+            setMobile(false);
           }}
         >
           <Settings2 size={18} />
@@ -534,13 +535,13 @@ export function App() {
           </button>
           <button
             className="nav-item"
-            hidden={!isAdmin}
             onClick={() => {
-              if (isAdmin) setDialog({ type: 'settings' });
+              setView('settings');
+              setMobile(false);
             }}
           >
             <Settings2 size={17} />
-            <span>{isAdmin ? 'Settings & setup' : 'Member access'}</span>
+            <span>Settings</span>
           </button>
           <button
             className="nav-item"
@@ -589,7 +590,9 @@ export function App() {
                   ? 'Activity'
                   : view === 'space'
                     ? 'Pages'
-                    : 'Memories'}
+                    : view === 'settings'
+                      ? 'Settings'
+                      : 'Memories'}
             </strong>
           </div>
           <div className="top-actions">
@@ -639,7 +642,18 @@ export function App() {
             All Dots are paused. Active compute stops and scheduled tasks wait.
           </div>
         )}
-        {view === 'space' ? (
+        {view === 'settings' ? (
+          <SettingsPage
+            state={state}
+            workspace={workspace}
+            onBack={() => setView('chat')}
+            onEditDot={(dot) =>
+              setDialog({ type: 'dot', dot, spaceId: dot.spaceId })
+            }
+            onSpace={(id) => openPage(id)}
+            mutate={mutate}
+          />
+        ) : view === 'space' ? (
           <SpaceWorkspace
             key={spaceId}
             space={
@@ -650,7 +664,7 @@ export function App() {
             workspace={workspace}
             paused={state.settings.paused}
             onPage={(id) => openPage(spaceId, id)}
-            onSettings={() => setDialog({ type: 'settings' })}
+            onSettings={() => setView('settings')}
             onCreateDot={() => setDialog({ type: 'dot', spaceId })}
             onDirty={setDirtyPage}
             onRefresh={refresh}
@@ -694,7 +708,10 @@ export function App() {
                       state={state.settings.paused ? 'paused' : 'idle'}
                     />
                     <h2>{dot.name}</h2>
-                    <p>{dot.instructions}</p>
+                    <details className="welcome-agent-details">
+                      <summary>About this agent</summary>
+                      <p>{dot.instructions}</p>
+                    </details>
                     <button
                       className="text-button"
                       onClick={() =>
@@ -799,7 +816,8 @@ export function App() {
                     <button
                       className="text-button"
                       onClick={() => {
-                        if (isAdmin) setDialog({ type: 'settings' });
+                        setView('settings');
+                        setMobile(false);
                       }}
                     >
                       Setup details

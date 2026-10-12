@@ -113,20 +113,36 @@ export function Chat({
   const sending = useRef(false);
   const [openUI, setOpenUI] = useState(false);
   const [openUIAvailable, setOpenUIAvailable] = useState(false);
+  const [preferencesReady, setPreferencesReady] = useState(false);
+  const [preferencesSaving, setPreferencesSaving] = useState(false);
   useEffect(() => {
     let active = true;
     setOpenUI(false);
-    void api<{ openui?: boolean }>('/session')
-      .then((session) => {
-        if (active) setOpenUIAvailable(session.openui === true);
+    setPreferencesReady(false);
+    void Promise.all([
+      api<{ openui?: boolean }>('/session'),
+      api<{ interactive: boolean }>(`/dots/${dot.id}/chat-preferences`),
+    ])
+      .then(([session, preference]) => {
+        if (active) {
+          setOpenUIAvailable(session.openui === true);
+          setOpenUI(preference.interactive);
+          setPreferencesReady(true);
+        }
       })
       .catch(() => {
-        if (active) setOpenUIAvailable(false);
+        if (active) {
+          setOpenUIAvailable(false);
+          setPreferencesReady(true);
+          setError(
+            'Response preferences could not load. Reload to restore interactive mode.',
+          );
+        }
       });
     return () => {
       active = false;
     };
-  }, [thread.id]);
+  }, [dot.id]);
   const voice = useVoice(thread.id, onSaved, agent.messages.at(-1)?.id);
   const sent = useRef(false);
   const bottom = useRef<HTMLDivElement>(null);
@@ -167,6 +183,8 @@ export function Chat({
       sending.current ||
       !loaded ||
       !contextReady ||
+      !preferencesReady ||
+      preferencesSaving ||
       paused
     )
       return;
@@ -206,12 +224,19 @@ export function Chat({
     }
   };
   useEffect(() => {
-    if (loaded && contextReady && !paused && initialPrompt && !sent.current) {
+    if (
+      loaded &&
+      contextReady &&
+      preferencesReady &&
+      !paused &&
+      initialPrompt &&
+      !sent.current
+    ) {
       sent.current = true;
       onConsumed();
       void send(initialPrompt);
     }
-  }, [loaded, contextReady, paused, initialPrompt]);
+  }, [loaded, contextReady, preferencesReady, paused, initialPrompt]);
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: 'instant', block: 'end' });
   }, [agent.messages.length, running]);
@@ -373,18 +398,56 @@ export function Chat({
           </button>
         </div>
       </header>
-      <ModelRouting threadId={thread.id} running={running} />
-      {openUIAvailable && (
-        <label className="openui-option">
-          <input
-            type="checkbox"
-            checked={openUI}
-            disabled={running}
-            onChange={(event) => setOpenUI(event.target.checked)}
-          />
-          Interactive responses (optional)
-        </label>
-      )}
+      <details className="chat-options">
+        <summary>
+          Chat options{' '}
+          <span>{openUI ? 'Interactive' : 'Text'} · model & agent</span>
+        </summary>
+        <div className="chat-options-body">
+          <ModelRouting threadId={thread.id} running={running} />
+          {openUIAvailable && (
+            <label className="openui-option">
+              <input
+                type="checkbox"
+                checked={openUI}
+                disabled={running || preferencesSaving || !preferencesReady}
+                onChange={async (event) => {
+                  const interactive = event.target.checked;
+                  setPreferencesSaving(true);
+                  try {
+                    const saved = await api<{ interactive: boolean }>(
+                      `/dots/${dot.id}/chat-preferences`,
+                      'PUT',
+                      { interactive },
+                    );
+                    setOpenUI(saved.interactive);
+                  } catch {
+                    setError('Could not save interactive mode. Please retry.');
+                  } finally {
+                    setPreferencesSaving(false);
+                  }
+                }}
+              />
+              Interactive responses · saved for you on this agent
+            </label>
+          )}
+          <details className="agent-context">
+            <summary>Agent instructions & learning</summary>
+            <p>{dot.instructions}</p>
+            <p>
+              Conversation Learning ID:{' '}
+              <code>{thread.learningContainerId || 'Not enrolled'}</code>
+            </p>
+            <p>
+              New conversations:{' '}
+              <code>{dot.learningContainerId || 'Learning off'}</code>.{' '}
+              {dot.skillDeliveryEnabled
+                ? 'Published skills enabled.'
+                : 'Published skills off.'}
+            </p>
+          </details>
+        </div>
+      </details>
       {pageContext && (
         <div className="page-chat-context">
           Working on{' '}
@@ -398,14 +461,13 @@ export function Chat({
           <div className="chat-welcome">
             <span className="eyebrow">A LITTLE SPACE TO THINK</span>
             <h1>What’s on your mind?</h1>
-            <p>{dot.instructions}</p>
             <p className="muted">
               Your conversation stays with this Dot, across text and calls.
             </p>
           </div>
         )}
         <ChatTranscript
-          openUI={openUI && openUIAvailable}
+          openUI={openUIAvailable}
           actionsDisabled={
             running ||
             !loaded ||
@@ -606,6 +668,8 @@ export function Chat({
                 (!draft.trim() && !attachments.length) ||
                 !loaded ||
                 !contextReady ||
+                !preferencesReady ||
+                preferencesSaving ||
                 paused
               }
             >
@@ -614,9 +678,7 @@ export function Chat({
           )}
         </div>
         <div className="chat-compose-note">
-          {voiceReady
-            ? 'Text and voice, one conversation.'
-            : 'Text is ready. Voice needs separate server configuration.'}
+          Check important details. Your conversation is saved automatically.
         </div>
       </form>
     </div>

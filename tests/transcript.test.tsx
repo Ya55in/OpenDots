@@ -99,7 +99,7 @@ it('visually labels scheduled prompts while keeping ordinary user messages uncha
   expect(html).toContain('Scheduled');
   expect(html).toContain('chat-bubble user scheduled');
   expect(html).toContain(
-    '<div class="chat-bubble user"><p>Manual request</p></div>',
+    '<div class="chat-bubble user"><p>Manual request</p>',
   );
   expect(html).toContain('chat-bubble assistant');
   expect(html.match(/Scheduled request body/g)).toHaveLength(2);

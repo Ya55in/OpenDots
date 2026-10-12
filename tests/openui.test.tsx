@@ -170,7 +170,12 @@ bars = BarChart(
       ),
     );
     expect(root.root.findByType('input').props.value).toBe('Keep this edit');
-    await act(async () => root.root.findByType('button').props.onClick());
+    await act(async () =>
+      root.root
+        .findAllByType('button')
+        .find((button) => button.props.className !== 'message-copy')!
+        .props.onClick(),
+    );
     expect(after.mock.calls[0][0]).toContain('Keep this edit');
     expect(before).not.toHaveBeenCalled();
   });
@@ -373,7 +378,12 @@ bars = BarChart(
           .findByType('select')
           .props.onChange({ target: { value: 'B' } });
       });
-      await act(async () => root.root.findByType('button').props.onClick());
+      await act(async () =>
+        root.root
+          .findAllByType('button')
+          .find((button) => button.props.className !== 'message-copy')!
+          .props.onClick(),
+      );
       expect(onDraft).toHaveBeenCalledTimes(1);
       expect(onDraft.mock.calls[0][0]).toContain('Edited note');
       expect(onDraft.mock.calls[0][0]).toContain('"value":"B"');
@@ -383,7 +393,12 @@ bars = BarChart(
           <OpenUIBlock source={formSource} disabled={true} onDraft={onDraft} />,
         ),
       );
-      await act(async () => root.root.findByType('button').props.onClick());
+      await act(async () =>
+        root.root
+          .findAllByType('button')
+          .find((button) => button.props.className !== 'message-copy')!
+          .props.onClick(),
+      );
       expect(onDraft).toHaveBeenCalledTimes(1);
       expect(root.root.findByType('fieldset').props.disabled).toBe(true);
     },

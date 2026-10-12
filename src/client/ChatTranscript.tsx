@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react';
 import { OpenUIBoundary } from './OpenUIBoundary';
+import { CopyButton } from './CopyButton';
 const OpenUIBlock = lazy(() =>
   import('./OpenUIBlock').then((module) => ({ default: module.OpenUIBlock })),
 );
@@ -172,7 +173,21 @@ export function ChatTranscript({
                     : message.content}
                 </ReactMarkdown>
               </OpenUIContext.Provider>
-              {message.role === 'assistant' && renderExport?.(message)}
+              <div className="message-actions">
+                <CopyButton
+                  text={
+                    message.role === 'user'
+                      ? displayFileMessage(message.content)
+                      : message.content
+                  }
+                  label={
+                    message.role === 'user'
+                      ? 'Copy your message'
+                      : 'Copy response'
+                  }
+                />
+                {message.role === 'assistant' && renderExport?.(message)}
+              </div>
             </div>
           )}
           {message.role === 'assistant' && renderTools?.(message)}

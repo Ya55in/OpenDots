@@ -244,3 +244,35 @@ it('runs a member agent with its own identity, scoped context and no owner memor
   expect(f.ws.context.search('member-run', 'Bonjour')).toHaveLength(1);
   expect(f.ws.conversations().map((t) => t.id)).not.toContain('member-run');
 });
+
+it('persists interactive preferences per user and Dot without granting agent administration', async () => {
+  const f = fixture();
+  const path = `/dots/${f.dot.id}/chat-preferences`;
+  expect(await (await f.req(path)).json()).toEqual({ interactive: false });
+  expect(
+    await (await f.req(path, f.m.token, 'PUT', { interactive: true })).json(),
+  ).toEqual({ interactive: true });
+  expect(await (await f.req(path)).json()).toEqual({ interactive: true });
+  expect(await (await f.req(path, f.other.token)).json()).toEqual({
+    interactive: false,
+  });
+  expect(f.ws.chatPreference(f.dot.id)).toEqual({ interactive: false });
+  expect(
+    (await f.req(`/dots/${f.privateDot.id}/chat-preferences`)).status,
+  ).toBe(403);
+  expect(
+    (
+      await f.req(path, f.m.token, 'PUT', {
+        interactive: true,
+        userId: 'owner',
+      })
+    ).status,
+  ).toBe(400);
+  expect(
+    (
+      await f.req(`/dots/${f.dot.id}`, f.m.token, 'PUT', {
+        instructions: 'replace',
+      })
+    ).status,
+  ).toBe(403);
+});
