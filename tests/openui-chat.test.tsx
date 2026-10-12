@@ -15,8 +15,14 @@ const mocks = vi.hoisted(() => {
       runAgent: vi.fn(async () => ({ newMessages: [{ role: 'assistant' }] })),
       stopAgent: vi.fn(),
     },
-    api: vi.fn(async (path: string) =>
-      path === '/session' ? { openui: true } : null,
+    api: vi.fn(async (path: string, method?: string, body?: unknown) =>
+      path === '/session'
+        ? { openui: true }
+        : path.endsWith('/chat-preferences')
+          ? method === 'PUT'
+            ? body
+            : { interactive: false }
+          : null,
     ),
   };
 });
@@ -71,7 +77,7 @@ it('keeps the original thread/agent, drafts without sending, and submits once th
     runtimeAgentId: 'original-dot',
     threadId: 'original-thread',
   });
-  expect(root!.root.findByType(ChatTranscript).props.openUI).toBe(false);
+  expect(root!.root.findByType(ChatTranscript).props.openUI).toBe(true);
   await act(async () =>
     root!.root
       .findByProps({ type: 'checkbox' })
@@ -147,5 +153,18 @@ it('omits UI capability on ordinary messages', async () => {
   );
   expect(mocks.copilotkit.runAgent).toHaveBeenCalledExactlyOnceWith({
     agent: mocks.agent,
+  });
+});
+
+it('loads the saved agent preference before sending an initial prompt', async () => {
+  mocks.api.mockImplementationOnce(async () => null);
+  mocks.api.mockImplementationOnce(async () => ({ openui: true }));
+  mocks.api.mockImplementationOnce(async () => ({ interactive: true }));
+  await act(async () => {
+    root = create(<Chat {...props} initialPrompt="Show my dashboard" />);
+  });
+  expect(mocks.copilotkit.runAgent).toHaveBeenCalledExactlyOnceWith({
+    agent: mocks.agent,
+    forwardedProps: { openui: 1 },
   });
 });

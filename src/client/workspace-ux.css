@@ -1,0 +1,355 @@
+/* Compact conversations, with optional detail and full-page administration. */
+.member-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.member-toolbar input {
+  flex: 1;
+  min-width: 0;
+}
+.member-toolbar button {
+  white-space: nowrap;
+}
+.welcome-agent-details {
+  max-width: 650px;
+  margin: 12px auto;
+  max-height: 25dvh;
+  overflow: auto;
+}
+.welcome-agent-details summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+}
+.template-app .live-chat {
+  max-width: 1040px;
+  width: 100%;
+  min-height: 0;
+  padding: 12px 32px 16px;
+}
+.template-app .chat-transcript {
+  padding: 28px max(0px, calc((100% - 780px) / 2));
+  gap: 24px;
+  overscroll-behavior: contain;
+}
+.template-app .chat-bubble {
+  font-size: 15px;
+  line-height: 1.7;
+  min-width: 0;
+}
+.template-app .chat-bubble p {
+  line-height: 1.7;
+}
+.template-app .chat-bubble.user {
+  max-width: 85%;
+  border-radius: 20px;
+  padding: 14px 18px;
+}
+.template-app .chat-bubble.assistant {
+  width: 100%;
+  padding: 0;
+}
+.chat-bubble table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+.chat-bubble th,
+.chat-bubble td {
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  text-align: left;
+}
+.chat-bubble pre {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.chat-options {
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+  font-size: 13px;
+}
+.chat-options > summary {
+  cursor: pointer;
+  padding: 12px 4px;
+  font-weight: 600;
+}
+.chat-options > summary span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  margin-left: 10px;
+}
+.chat-options-body {
+  max-height: min(48dvh, 440px);
+  overflow: auto;
+  padding: 0 8px 16px;
+  overscroll-behavior: contain;
+}
+.chat-options-body .model-routing {
+  margin: 8px 0 18px;
+}
+.agent-context {
+  margin-top: 16px;
+}
+.agent-context summary,
+.settings-card summary {
+  cursor: pointer;
+  padding: 8px 0;
+  font-weight: 600;
+}
+.agent-context p,
+.agent-instructions {
+  white-space: pre-wrap;
+  line-height: 1.65;
+}
+.message-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.message-copy {
+  border: 0;
+  background: transparent;
+  padding: 6px 8px;
+  font-size: 11px;
+  opacity: 0.8;
+  min-height: 32px;
+}
+.message-actions .document-export {
+  margin: 0;
+}
+.template-app .chat-composer {
+  width: 100%;
+  max-width: 780px;
+  margin: 0 auto;
+  flex-shrink: 0;
+  border-radius: 22px;
+  padding: 10px 12px;
+  box-shadow: 0 4px 24px #00000008;
+}
+.template-app .chat-compose-row textarea {
+  font-size: 15px;
+  max-height: 180px;
+  resize: vertical;
+  min-height: 44px;
+  padding-top: 12px;
+}
+.template-app .chat-compose-note {
+  font-size: 10px;
+  text-align: center;
+  margin-top: 8px;
+}
+.settings-page {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  padding: 32px clamp(18px, 4vw, 60px);
+}
+.settings-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  max-width: 1180px;
+  margin: 0 auto 28px;
+}
+.settings-heading h1 {
+  font-size: 32px;
+  letter-spacing: -1px;
+  margin: 8px 0;
+}
+.settings-layout {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 36px;
+  max-width: 1180px;
+  margin: auto;
+}
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-self: start;
+  position: sticky;
+  top: 0;
+}
+.settings-nav button {
+  justify-content: flex-start;
+  border: 0;
+  background: transparent;
+  min-height: 46px;
+  white-space: nowrap;
+}
+.settings-nav button[aria-current] {
+  background: var(--lavender);
+  color: var(--blue-dark);
+  font-weight: 600;
+}
+.settings-content {
+  min-width: 0;
+  padding-bottom: 32px;
+}
+.settings-content > h2 {
+  margin-top: 0;
+  font-size: 24px;
+  letter-spacing: -0.5px;
+}
+.settings-content p {
+  line-height: 1.65;
+}
+.settings-card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 20px;
+  margin: 20px 0;
+  min-width: 0;
+}
+.settings-card h3 {
+  margin: 0 0 12px;
+}
+.settings-card dl {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  font-size: 13px;
+}
+.settings-card dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.settings-card dt {
+  color: var(--muted);
+}
+.settings-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.settings-content input:not([type='checkbox']):not([type='radio']),
+.settings-content select {
+  width: 100%;
+  min-height: 44px;
+}
+.settings-content .members-panel {
+  margin: 0;
+}
+.settings-content .member-row {
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 18px 0;
+}
+.settings-content .member-row > span {
+  flex: 1;
+  min-width: 150px;
+}
+.learning-steps {
+  padding: 18px 18px 18px 38px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  line-height: 1.8;
+}
+.settings-page a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+summary:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+@media (max-width: 700px) {
+  .template-app.app {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .template-app .workspace {
+    min-height: 0;
+    height: 100%;
+  }
+  .template-app .live-chat {
+    padding: 8px 12px max(10px, env(safe-area-inset-bottom));
+  }
+  .template-app .chat-persona {
+    padding-bottom: 8px;
+  }
+  .template-app .chat-transcript {
+    padding: 20px 2px;
+    min-height: 0;
+  }
+  .template-app .chat-bubble {
+    font-size: 15px;
+  }
+  .template-app .chat-bubble.user {
+    max-width: 92%;
+  }
+  .template-app .chat-compose-row textarea {
+    font-size: 16px;
+  }
+  .template-app .chat-persona .icon-button,
+  .template-app .chat-compose-row .icon-button,
+  .message-copy {
+    min-width: 40px;
+    min-height: 40px;
+  }
+  .chat-options > summary {
+    min-height: 44px;
+  }
+  .chat-options-body {
+    max-height: 42dvh;
+  }
+  .settings-page {
+    padding: 18px 16px max(20px, env(safe-area-inset-bottom));
+  }
+  .settings-heading {
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .settings-heading h1 {
+    font-size: 27px;
+  }
+  .settings-heading > button {
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .settings-layout {
+    display: block;
+  }
+  .settings-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    position: static;
+    gap: 4px;
+    margin-bottom: 24px;
+    padding-bottom: 6px;
+  }
+  .settings-nav button {
+    flex-shrink: 0;
+  }
+  .settings-card {
+    padding: 16px;
+  }
+  .settings-content input:not([type='checkbox']):not([type='radio']),
+  .settings-content select {
+    font-size: 16px;
+  }
+  .settings-content button {
+    min-height: 44px;
+  }
+  .settings-card dl {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .settings-card dd {
+    margin-bottom: 8px;
+  }
+  .template-app .mode-badge {
+    display: none;
+  }
+}

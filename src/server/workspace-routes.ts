@@ -32,6 +32,23 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
   const app = new Hono();
   app.route('/', pageRoutes(platform));
   app.route('/', knowledgeRoutes(platform));
+  app.get('/dots/:id/chat-preferences', (c) =>
+    c.json(platform.workspace.chatPreference(c.req.param('id'))),
+  );
+  app.put('/dots/:id/chat-preferences', async (c) => {
+    const parsed = z
+      .object({ interactive: z.boolean() })
+      .strict()
+      .safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success)
+      return c.json({ error: 'Invalid chat preference.' }, 400);
+    return c.json(
+      platform.workspace.setChatPreference(
+        c.req.param('id'),
+        parsed.data.interactive,
+      ),
+    );
+  });
   app.post('/setup-telemetry', async (c) => {
     const parsed = setupInputSchema.safeParse(
       await c.req.json().catch(() => null),

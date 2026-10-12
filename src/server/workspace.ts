@@ -34,7 +34,8 @@ export class WorkspaceStore {
       CREATE TABLE IF NOT EXISTS thread_bindings(id TEXT PRIMARY KEY, dotId TEXT NOT NULL, ownerId TEXT NOT NULL, title TEXT NOT NULL, createdAt INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS task_threads(taskId TEXT PRIMARY KEY, threadId TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS calls(id TEXT PRIMARY KEY, threadId TEXT NOT NULL, startedAt INTEGER NOT NULL, endedAt INTEGER, status TEXT NOT NULL, transcript TEXT NOT NULL, error TEXT);
-      CREATE TABLE IF NOT EXISTS captures(threadId TEXT PRIMARY KEY, value TEXT NOT NULL);`);
+      CREATE TABLE IF NOT EXISTS captures(threadId TEXT PRIMARY KEY, value TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS chat_preferences(userId TEXT NOT NULL, dotId TEXT NOT NULL, interactive INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(userId, dotId));`);
     for (const [table, column, definition] of [
       ['dots', 'learningContainerId', 'TEXT'],
       ['dots', 'skillDeliveryEnabled', 'INTEGER NOT NULL DEFAULT 0'],
@@ -104,6 +105,24 @@ export class WorkspaceStore {
   }
   get currentUserId() {
     return this.member()?.id ?? this.ownerId;
+  }
+  chatPreference(dotId: string) {
+    if (!this.dot(dotId)) throw new Error('Dot not found.');
+    const row = this.db
+      .prepare(
+        'SELECT interactive FROM chat_preferences WHERE userId=? AND dotId=?',
+      )
+      .get(this.currentUserId, dotId);
+    return { interactive: !!row?.interactive };
+  }
+  setChatPreference(dotId: string, interactive: boolean) {
+    this.chatPreference(dotId);
+    this.db
+      .prepare(
+        'INSERT INTO chat_preferences(userId,dotId,interactive) VALUES (?,?,?) ON CONFLICT(userId,dotId) DO UPDATE SET interactive=excluded.interactive',
+      )
+      .run(this.currentUserId, dotId, Number(interactive));
+    return this.chatPreference(dotId);
   }
   spaces(): Space[] {
     const member = this.member();

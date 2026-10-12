@@ -11,6 +11,12 @@ export async function memberRouteAllowed(request: Request, ws: WorkspaceStore) {
     return true;
   if (method === 'POST' && path === '/setup-telemetry') return true;
   if (path.startsWith('/copilotkit/')) return true; // validateRuntimeScope + per-user SDK identity enforce thread ownership.
+  const preference = path.match(/^\/dots\/([^/]+)\/chat-preferences$/);
+  if (preference)
+    return (
+      ['GET', 'PUT'].includes(method) &&
+      !!ws.dot(decodeURIComponent(preference[1]))
+    );
   const body =
     method === 'GET'
       ? {}
