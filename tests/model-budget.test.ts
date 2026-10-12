@@ -275,7 +275,7 @@ it('free preset enforces zero prices, strips paid fallbacks, and blocks paid aux
   }
 });
 
-it('reserves fast-model output for answers and reports truncation after settling streamed usage', async () => {
+it('uses supported GLM reasoning and reports truncation after settling streamed usage', async () => {
   const ws = new WorkspaceStore(':memory:', 'owner');
   try {
     const request = vi
@@ -303,7 +303,7 @@ it('reserves fast-model output for answers and reports truncation after settling
     });
     expect(
       JSON.parse(String(request.mock.calls[0][1]?.body)).reasoning,
-    ).toEqual({ enabled: false });
+    ).toEqual({ effort: 'low' });
     await expect(response.text()).rejects.toThrow('output limit');
     expect(ws.routing.spending().charged).toBe(0.002);
   } finally {
