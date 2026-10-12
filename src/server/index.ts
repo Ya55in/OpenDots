@@ -107,7 +107,9 @@ const app = createApp({
 });
 app.use('*', async (c, next) => {
   c.header('X-Content-Type-Options', 'nosniff');
-  c.header('Referrer-Policy', 'no-referrer');
+  // Picker validates website-restricted keys against our origin. Never send
+  // page paths or query strings; the OAuth callback retains no-referrer.
+  c.header('Referrer-Policy', 'strict-origin');
   c.header(
     'Content-Security-Policy',
     `default-src 'self'; script-src 'self' https://apis.google.com; frame-src https://docs.google.com https://drive.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ${wsOrigin} https://www.googleapis.com https://apis.google.com; media-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`,
