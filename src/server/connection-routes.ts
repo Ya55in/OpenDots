@@ -141,7 +141,16 @@ export function connectionRoutes(
         exposed.tool.name,
       )
     )
-      return recovered()!;
+      return (
+        recovered() ??
+        c.json(
+          {
+            error:
+              'This approval has already been used. Check its previous result before requesting another action.',
+          },
+          409,
+        )
+      );
     // Not tied to the request: once approved, finish even if the tab closes.
     const result = await connections.call(exposed, approval.arguments);
     connections.store.finishAction(thread.id, body.toolCallId, result);

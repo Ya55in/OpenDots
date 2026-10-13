@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import type { Dot, Memory, State, WorkspaceState } from '../shared/types';
 import { ConnectionsSection } from './ConnectionsSection';
+import { EmailConnection } from './EmailConnection';
 import {
   setThemePreference,
   themePreference,
@@ -356,6 +357,7 @@ export function WorkspaceDialog({
           {dialog.type === 'dot' && dialog.dot && (
             <>
               <ConnectionsSection dotId={dialog.dot.id} />
+              <EmailConnection dotId={dialog.dot.id} />
               <KnowledgeSection spaceId={dialog.dot.spaceId} />
             </>
           )}

@@ -122,10 +122,19 @@ export class DriveStorage {
     if (
       old.clientId &&
       value.clientId !== old.clientId &&
-      this.workspace.spaces().some((s) => this.workspace.files.account(s.id))
+      (this.workspace
+        .spaces()
+        .some((s) => this.workspace.files.account(s.id)) ||
+        this.workspace
+          .dots()
+          .some((dot) =>
+            this.workspace.connections
+              .list(dot.id)
+              .some((c) => c.url === 'gmail://mailbox'),
+          ))
     )
       throw new Error(
-        'Disconnect Google Drive from all Spaces before changing the Google client.',
+        'Disconnect Google Drive and agent mailboxes before changing the Google client.',
       );
     this.workspace.files.setConfig(
       this.seal({
@@ -138,6 +147,10 @@ export class DriveStorage {
   private client() {
     const app = this.app();
     return new OAuth2Client(app.clientId, app.clientSecret, this.redirectUri);
+  }
+  googleClient(redirectUri: string) {
+    const app = this.app();
+    return new OAuth2Client(app.clientId, app.clientSecret, redirectUri);
   }
   begin(spaceId: string) {
     if (!this.status(spaceId).configured)
