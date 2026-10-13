@@ -1,4 +1,24 @@
 /* Compact conversations, with optional detail and full-page administration. */
+.chat-transcript {
+  overflow-anchor: none;
+  scroll-behavior: auto;
+}
+.chat-history-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.history-older {
+  align-self: center;
+  padding: 8px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
 .member-toolbar {
   display: flex;
   gap: 12px;

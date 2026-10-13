@@ -1,4 +1,5 @@
 import { retryConnection } from './retry-connection';
+import { useChatHistory } from './useChatHistory';
 import { chatError } from './chat-error';
 import { DocumentCard } from './DocumentCard';
 import { DocumentExport } from './DocumentExport';
@@ -179,7 +180,7 @@ export function Chat({
   }, [dot.id, connectionAttempt]);
   const voice = useVoice(thread.id, onSaved, agent.messages.at(-1)?.id);
   const sent = useRef(false);
-  const bottom = useRef<HTMLDivElement>(null);
+  const followLatest = useRef<() => void>(() => {});
   useEffect(() => {
     const subscription = copilotkit.subscribe({
       onError: ({ error, code }) => {
@@ -271,6 +272,7 @@ export function Chat({
       return;
     setError('');
     setRecovery('');
+    followLatest.current();
     runError.current = '';
     sending.current = true;
     setRunning(true);
@@ -354,9 +356,6 @@ export function Chat({
     }
   }, [loaded, contextReady, preferencesReady, paused, initialPrompt]);
   useEffect(() => {
-    bottom.current?.scrollIntoView({ behavior: 'instant', block: 'end' });
-  }, [agent.messages.length, running]);
-  useEffect(() => {
     if (paused && voice.status !== 'idle') void voice.end();
   }, [paused]);
   useHumanInTheLoop(
@@ -436,6 +435,14 @@ export function Chat({
               call.function.name === pageReviewTool.name ||
               call.function.name === connectionActionTool.name,
           ))),
+  );
+  const history = useChatHistory(visible, loaded);
+  followLatest.current = history.latest;
+  const shownIds = new Set(history.visible.map((message) => message.id));
+  const shownCalls = calls.filter((call) =>
+    call.anchorMessageId
+      ? shownIds.has(call.anchorMessageId)
+      : !history.hasOlder,
   );
   return (
     <div className="live-chat">
@@ -582,74 +589,94 @@ export function Chat({
           </a>
         </div>
       )}
-      <div className="chat-transcript">
-        {!visible.length && (
-          <div className="chat-welcome">
-            <span className="eyebrow">A LITTLE SPACE TO THINK</span>
-            <h1>What’s on your mind?</h1>
-            <p className="muted">
-              Your conversation stays with this Dot, across text and calls.
+      <div
+        className="chat-transcript"
+        ref={history.viewport}
+        onScroll={history.onScroll}
+        aria-busy={!history.ready}
+      >
+        <div className="chat-history-content" ref={history.content}>
+          {!history.ready && (
+            <p className="muted" role="status">
+              Loading latest messages…
             </p>
-          </div>
-        )}
-        <ChatTranscript
-          openUI={openUIAvailable}
-          actionsDisabled={
-            running ||
-            !loaded ||
-            !contextReady ||
-            paused ||
-            voice.status !== 'idle'
-          }
-          onOpenUIDraft={(text) => {
-            if (
+          )}
+          {history.hasOlder && (
+            <button
+              className="history-older"
+              type="button"
+              onClick={history.older}
+            >
+              Load older messages
+            </button>
+          )}
+          {history.ready && !visible.length && (
+            <div className="chat-welcome">
+              <span className="eyebrow">A LITTLE SPACE TO THINK</span>
+              <h1>What’s on your mind?</h1>
+              <p className="muted">
+                Your conversation stays with this Dot, across text and calls.
+              </p>
+            </div>
+          )}
+          <ChatTranscript
+            openUI={openUIAvailable}
+            actionsDisabled={
               running ||
-              sending.current ||
               !loaded ||
               !contextReady ||
               paused ||
               voice.status !== 'idle'
-            )
-              return;
-            // Preserve text already typed and any pending attachments/source.
-            const next = draft.trim() ? `${draft}\n\n${text}` : text;
-            if (next.length > 4000) {
-              setError(
-                'The combined message is too long. Shorten your draft or form values and try again.',
-              );
-              throw new Error('Message too long.');
             }
-            setDraft(next);
-          }}
-          renderExport={(message) => (
-            <DocumentExport
-              markdown={String(message.content)}
-              dotId={dot.id}
-              spaceId={dot.spaceId}
-              threadId={thread.id}
-            />
+            onOpenUIDraft={(text) => {
+              if (
+                running ||
+                sending.current ||
+                !loaded ||
+                !contextReady ||
+                paused ||
+                voice.status !== 'idle'
+              )
+                return;
+              // Preserve text already typed and any pending attachments/source.
+              const next = draft.trim() ? `${draft}\n\n${text}` : text;
+              if (next.length > 4000) {
+                setError(
+                  'The combined message is too long. Shorten your draft or form values and try again.',
+                );
+                throw new Error('Message too long.');
+              }
+              setDraft(next);
+            }}
+            renderExport={(message) => (
+              <DocumentExport
+                markdown={String(message.content)}
+                dotId={dot.id}
+                spaceId={dot.spaceId}
+                threadId={thread.id}
+              />
+            )}
+            messages={history.visible}
+            calls={history.ready ? shownCalls : []}
+            renderTools={(message) => (
+              <CopilotChatToolCallsView
+                message={message}
+                messages={agent.messages}
+              />
+            )}
+          />
+          {running && (
+            <div className="thinking">
+              <span />
+              <span />
+              <span />
+              <span>
+                {dot.name} is working · {elapsed}s
+                {elapsed >= 30 ? ' · You can stop this response below.' : ''}
+              </span>
+            </div>
           )}
-          messages={visible}
-          calls={calls}
-          renderTools={(message) => (
-            <CopilotChatToolCallsView
-              message={message}
-              messages={agent.messages}
-            />
-          )}
-        />
-        {running && (
-          <div className="thinking">
-            <span />
-            <span />
-            <span />
-            <span>
-              {dot.name} is working · {elapsed}s
-              {elapsed >= 30 ? ' · You can stop this response below.' : ''}
-            </span>
-          </div>
-        )}
-        <div ref={bottom} />
+        </div>
       </div>
       {!running && loaded && !error && visible.at(-1)?.role === 'user' && (
         <div className="chat-error" role="status">
