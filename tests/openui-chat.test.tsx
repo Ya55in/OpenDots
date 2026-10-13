@@ -186,6 +186,26 @@ it('reports empty assistant messages as failed instead of silently completing', 
   await act(async () =>
     root!.root.findByType('form').props.onSubmit({ preventDefault() {} }),
   );
-  expect(JSON.stringify(root!.toJSON())).toContain('without a readable answer');
+  expect(JSON.stringify(root!.toJSON())).toContain(
+    'The answer could not finish',
+  );
   expect(props.onSaved).not.toHaveBeenCalled();
+});
+
+it('continues a saved failed request without duplicating the user message', async () => {
+  mocks.copilotkit.runAgent.mockRejectedValueOnce(
+    new Error('404 No endpoints found'),
+  );
+  await act(async () => {
+    root = create(<Chat {...props} initialPrompt="Make a PDF" />);
+  });
+  expect(mocks.agent.addMessage).toHaveBeenCalledTimes(1);
+  const button = root!.root
+    .findAllByType('button')
+    .find((b) => b.children.includes('Continue saved request'))!;
+  await act(async () => {
+    await button.props.onClick();
+  });
+  expect(mocks.agent.addMessage).toHaveBeenCalledTimes(1);
+  expect(mocks.copilotkit.runAgent).toHaveBeenCalledTimes(2);
 });

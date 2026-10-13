@@ -1,3 +1,4 @@
+import { chatError } from './chat-error';
 import { DocumentCard } from './DocumentCard';
 import { DocumentExport } from './DocumentExport';
 import { fileMessage } from './file-message';
@@ -108,6 +109,8 @@ export function Chat({
   const [source, setSource] = useState('');
   const [sourceOpen, setSourceOpen] = useState(false);
   const [error, setError] = useState('');
+  const [recovery, setRecovery] = useState('');
+
   const [loaded, setLoaded] = useState(false);
   const [running, setRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -173,6 +176,12 @@ export function Chat({
       onError: ({ error }) => setError(error.message),
     });
     const events = agent.subscribe({
+      onCustomEvent: ({ event }) => {
+        if (event.name === 'model_recovery')
+          setRecovery(
+            'The first provider was unavailable. Trying an economical alternative within your spending limits…',
+          );
+      },
       onRunErrorEvent: ({ event }) => {
         runError.current = event.message;
         setError(event.message);
@@ -201,12 +210,12 @@ export function Chat({
       active = false;
     };
   }, [agent, copilotkit, isReady]);
-  const send = async (text: string) => {
+  const send = async (text: string, resume = false) => {
     if (
-      (!text.trim() && !attachments.length) ||
+      (!resume && !text.trim() && !attachments.length) ||
       running ||
       sending.current ||
-      !loaded ||
+      (!resume && !loaded) ||
       !contextReady ||
       !preferencesReady ||
       preferencesSaving ||
@@ -214,19 +223,32 @@ export function Chat({
     )
       return;
     setError('');
+    setRecovery('');
     runError.current = '';
     sending.current = true;
     setRunning(true);
     try {
-      agent.addMessage({
-        id: crypto.randomUUID(),
-        role: 'user',
-        content: contextualMessage(fileMessage(text, attachments), pageContext),
-      });
-      setDraft('');
-      setAttachments([]);
-      setSource('');
-      setSourceOpen(false);
+      if (resume) {
+        await copilotkit.connectAgent({ agent });
+        runError.current = '';
+        setError('');
+        setLoaded(true);
+      }
+      if (!resume)
+        agent.addMessage({
+          id: crypto.randomUUID(),
+          role: 'user',
+          content: contextualMessage(
+            fileMessage(text, attachments),
+            pageContext,
+          ),
+        });
+      if (!resume) {
+        setDraft('');
+        setAttachments([]);
+        setSource('');
+        setSourceOpen(false);
+      }
       const result = await copilotkit.runAgent({
         agent,
         ...(openUI && openUIAvailable
@@ -578,24 +600,46 @@ export function Chat({
           </button>
         </div>
       )}
-      {(error || voice.error) && (
-        <div className="chat-error" role="alert">
-          {error || voice.error}
-          {error && (
-            <button
-              onClick={() => {
-                setError('');
-                void copilotkit
-                  .connectAgent({ agent })
-                  .then(() => setLoaded(true))
-                  .catch((e) => setError(e.message));
-              }}
-            >
-              Reconnect
-            </button>
-          )}
+      {recovery && (
+        <div className="chat-error" role="status">
+          {running
+            ? recovery
+            : 'An economical alternative was tried within your spending limits.'}
         </div>
       )}
+      {(error || voice.error) &&
+        (() => {
+          const problem = chatError(error || voice.error);
+          return (
+            <div className="chat-error" role="alert">
+              <strong>{problem.title}</strong>
+              <p>{problem.text}</p>
+              {error && problem.retry && (
+                <button
+                  disabled={running || paused}
+                  onClick={() => void send('', true)}
+                >
+                  Continue saved request
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  const options =
+                    document.querySelector<HTMLDetailsElement>('.chat-options');
+                  if (options) {
+                    options.open = true;
+                    options.scrollIntoView({
+                      block: 'start',
+                      behavior: 'smooth',
+                    });
+                  }
+                }}
+              >
+                Review model options
+              </button>
+            </div>
+          );
+        })()}
       <CallView
         key={voice.status === 'idle' ? 'idle' : 'call'}
         dot={dot}
