@@ -398,3 +398,39 @@ it.each([false, true])(
     }
   },
 );
+it('keeps the recovered model for subsequent tool steps in the same run', async () => {
+  const ws = new WorkspaceStore(':memory:', 'owner');
+  try {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response('Unavailable', { status: 404 }))
+      .mockImplementation(async () => new Response('{"usage":{"cost":0.001}}'));
+    const transport = budgetFetch(
+      ws.routing,
+      config,
+      {
+        runId: 'sticky',
+        dotId: 'dot',
+        threadId: 'thread',
+        allowFallback: true,
+      },
+      request,
+    );
+    const init = {
+      method: 'POST',
+      body: JSON.stringify({
+        model: 'deepseek/deepseek-v4-pro',
+        messages: [],
+        max_tokens: 100,
+      }),
+    };
+    await transport('https://openrouter.ai/api/v1/chat/completions', init);
+    await transport('https://openrouter.ai/api/v1/chat/completions', init);
+    expect(request).toHaveBeenCalledTimes(3);
+    expect(JSON.parse(String(request.mock.calls[2][1]?.body)).model).toBe(
+      'z-ai/glm-5.3-flash',
+    );
+  } finally {
+    ws.close();
+  }
+});
