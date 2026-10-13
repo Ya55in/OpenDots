@@ -11,6 +11,9 @@ type Row = Omit<Connection, 'hasToken' | 'tools'> & {
 };
 export class ConnectionStore {
   constructor(private db: DatabaseSync) {
+    db.exec(
+      `CREATE TABLE IF NOT EXISTS mail_oauth(state TEXT PRIMARY KEY, dotId TEXT NOT NULL, email TEXT NOT NULL, verifier TEXT NOT NULL, browser TEXT NOT NULL, expires INTEGER NOT NULL);`,
+    );
     db.exec(`CREATE TABLE IF NOT EXISTS mcp_connections(id TEXT PRIMARY KEY, dotId TEXT NOT NULL, name TEXT NOT NULL, url TEXT NOT NULL, token TEXT, tools TEXT NOT NULL, error TEXT, createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS mcp_approvals(id TEXT PRIMARY KEY, threadId TEXT NOT NULL, dotId TEXT NOT NULL, connectionId TEXT NOT NULL, tool TEXT NOT NULL, arguments TEXT NOT NULL, createdAt INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS mcp_actions(threadId TEXT NOT NULL, toolCallId TEXT NOT NULL, connectionId TEXT NOT NULL, tool TEXT NOT NULL, status TEXT NOT NULL, result TEXT, createdAt INTEGER NOT NULL, PRIMARY KEY(threadId, toolCallId));`);
@@ -29,6 +32,41 @@ export class ConnectionStore {
         `SELECT * FROM mcp_connections ${dotId ? 'WHERE dotId=?' : ''} ORDER BY createdAt, rowid`,
       )
       .all(...(dotId ? [dotId] : [])) as unknown as Row[];
+  }
+  startMailOAuth(
+    state: string,
+    dotId: string,
+    email: string,
+    verifier: string,
+    browser: string,
+  ) {
+    this.db
+      .prepare('DELETE FROM mail_oauth WHERE expires < ? OR dotId = ?')
+      .run(Date.now(), dotId);
+    this.db
+      .prepare('INSERT INTO mail_oauth VALUES (?, ?, ?, ?, ?, ?)')
+      .run(state, dotId, email, verifier, browser, Date.now() + 600_000);
+  }
+  consumeMailOAuth(state: string, browser: string) {
+    const row = this.db
+      .prepare(
+        'DELETE FROM mail_oauth WHERE state=? AND browser=? AND expires>? RETURNING *',
+      )
+      .get(state, browser, Date.now());
+    if (!row)
+      throw new Error(
+        'Email sign-in expired or belongs to another browser. Start again from this agent’s settings.',
+      );
+    return {
+      dotId: String(row.dotId),
+      email: String(row.email),
+      verifier: String(row.verifier),
+    };
+  }
+  saveToken(id: string, token: string) {
+    this.db
+      .prepare('UPDATE mcp_connections SET token=? WHERE id=?')
+      .run(token, id);
   }
   private view({ token, tools, ...row }: Row): Connection {
     return { ...row, hasToken: !!token, tools: JSON.parse(tools) };
@@ -165,10 +203,17 @@ export class ConnectionStore {
     return (
       this.db
         .prepare(
-          "INSERT OR IGNORE INTO mcp_actions (threadId, toolCallId, connectionId, tool, status, result, createdAt, approvalId) VALUES (?, ?, ?, ?, 'running', NULL, ?, ?)",
+          "INSERT OR IGNORE INTO mcp_actions (threadId, toolCallId, connectionId, tool, status, result, createdAt, approvalId) SELECT ?, ?, ?, ?, 'running', NULL, ?, ? WHERE NOT EXISTS (SELECT 1 FROM mcp_actions WHERE approvalId=?)",
         )
-        .run(threadId, toolCallId, connectionId, tool, Date.now(), approvalId)
-        .changes > 0
+        .run(
+          threadId,
+          toolCallId,
+          connectionId,
+          tool,
+          Date.now(),
+          approvalId,
+          approvalId,
+        ).changes > 0
     );
   }
   finishAction(

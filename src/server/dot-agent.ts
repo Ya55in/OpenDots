@@ -15,6 +15,7 @@ import { pageReviewTool } from '../shared/page-review.js';
 import { ComputerService } from './computer-service.js';
 import { computerTools } from './computer-tools.js';
 import { ConnectionService } from './connections.js';
+import { GmailService } from './gmail.js';
 import { connectionTools } from './connection-tools.js';
 import { connectionActionTool } from '../shared/connection-types.js';
 import { pageAccess, pageTools } from './page-tools.js';
@@ -309,7 +310,12 @@ export class DotAgent extends AbstractAgent {
           const connected = this.workspace.member()
             ? []
             : connectionTools(
-                new ConnectionService(this.workspace.connections),
+                new ConnectionService(
+                  this.workspace.connections,
+                  undefined,
+                  undefined,
+                  new GmailService(this.workspace, this.config.ownerToken),
+                ),
                 dot.id,
                 input.threadId,
                 check,

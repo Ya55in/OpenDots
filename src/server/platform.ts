@@ -1,4 +1,5 @@
 import { FileService } from './file-service.js';
+import { GmailService } from './gmail.js';
 import { ComputerService } from './computer-service.js';
 import { ConnectionService } from './connections.js';
 import { PageService } from './page-service.js';
@@ -30,6 +31,7 @@ export class Platform {
   readonly files: FileService;
   readonly computers: ComputerService;
   readonly connections: ConnectionService;
+  readonly gmail: GmailService;
   readonly intelligence?: CopilotKitIntelligence;
   readonly handler?: CopilotHonoApp;
   constructor(
@@ -44,7 +46,13 @@ export class Platform {
       config,
       () => store.settings().paused,
     );
-    this.connections = new ConnectionService(workspace.connections);
+    this.gmail = new GmailService(workspace, config.ownerToken);
+    this.connections = new ConnectionService(
+      workspace.connections,
+      undefined,
+      undefined,
+      this.gmail,
+    );
     this.pages = new PageService(workspace, () => {
       this.requireReady();
       return this.intelligence!;

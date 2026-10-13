@@ -11,6 +11,7 @@ export default defineConfig({
     proxy: {
       '/api': 'http://127.0.0.1:4310',
       '/storage': 'http://127.0.0.1:4310',
+      '/email': 'http://127.0.0.1:4310',
     },
   },
 });

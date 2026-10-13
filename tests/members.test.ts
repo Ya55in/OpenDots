@@ -90,6 +90,12 @@ it('filters members to intersected agents and Spaces, excludes owner data, and d
     ['/admin/members', 'POST', {}],
     ['/settings', 'PATCH', { paused: true }],
     ['/dots/' + f.dot.id, 'PUT', {}],
+    ['/dots/' + f.dot.id + '/email', 'GET', undefined],
+    [
+      '/dots/' + f.dot.id + '/email/connect',
+      'POST',
+      { email: 'other@example.com' },
+    ],
     ['/spaces', 'POST', { name: 'escape' }],
     ['/storage/google/app', 'PUT', {}],
     ['/dots/' + f.dot.id + '/computer/start', 'POST', {}],

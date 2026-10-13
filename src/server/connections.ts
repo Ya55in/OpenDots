@@ -8,6 +8,7 @@ import type {
   ConnectionTool,
 } from '../shared/connection-types.js';
 import type { ConnectionStore } from './connection-store.js';
+import { GMAIL_URL, type GmailService } from './gmail.js';
 const MAX_TOOLS = 100;
 const MAX_SCHEMA_BYTES = 16_000;
 const MAX_RESULT_CHARS = 20_000;
@@ -148,6 +149,7 @@ export class ConnectionService {
     readonly store: ConnectionStore,
     private transport: McpTransportFactory = httpTransport,
     private timeoutMs = 60_000,
+    private gmail?: GmailService,
   ) {}
   private async session<T>(
     target: { url: string; token?: string },
@@ -217,6 +219,11 @@ export class ConnectionService {
     const connection = this.store.get(id);
     if (!connection) throw new Error('Connection not found.');
     try {
+      if (connection.url === GMAIL_URL) {
+        if (!this.gmail) throw new Error('Email connector is unavailable.');
+        await this.gmail.check(connection);
+        return this.store.saveTools(id, connection.tools);
+      }
       const discovered = await this.discover(this.store.credentials(id));
       // Owner changes made while discovery ran win: merge against the
       // settings as they are now, not as they were when it started.
@@ -246,6 +253,14 @@ export class ConnectionService {
   ) {
     const connection = this.store.get(id);
     if (!connection) throw new Error('Connection not found.');
+    if (
+      connection.url === GMAIL_URL &&
+      ['send_email', 'create_draft'].includes(name) &&
+      patch.requiresApproval === false
+    )
+      throw new Error(
+        'Email changes always require approval of the exact message.',
+      );
     if (!connection.tools.some((tool) => tool.name === name))
       throw new Error('Connection tool not found.');
     return this.store.saveTools(
@@ -284,6 +299,17 @@ export class ConnectionService {
     signal?: AbortSignal,
   ): Promise<ConnectionActionResult> {
     try {
+      if (exposed.connection.url === GMAIL_URL) {
+        if (!this.gmail) throw new Error('Email connector is unavailable.');
+        return normalizeResult({
+          structuredContent: await this.gmail.call(
+            exposed.connection,
+            exposed.tool.name,
+            args,
+            signal,
+          ),
+        });
+      }
       return await this.session(
         this.store.credentials(exposed.connection.id),
         signal,

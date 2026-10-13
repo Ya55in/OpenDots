@@ -1,6 +1,7 @@
 import { memberContext, memberInput } from './members.js';
 import { memberRouteAllowed } from './member-routes.js';
 import { fileRoutes, driveCallbackRoutes } from './file-routes.js';
+import { gmailRoutes, gmailCallbackRoutes } from './gmail-routes.js';
 import { computerRoutes } from './computer-routes.js';
 import { connectionRoutes } from './connection-routes.js';
 import { Hono } from 'hono';
@@ -32,6 +33,7 @@ export function createApp({
 }: AppOptions) {
   const app = new Hono();
   if (platform) app.route('/storage', driveCallbackRoutes(platform.files));
+  if (platform) app.route('/email', gmailCallbackRoutes(platform.gmail));
   app.use(
     '/api/*',
     bodyLimit({
@@ -206,6 +208,7 @@ export function createApp({
     });
   });
   if (platform) app.route('/api', fileRoutes(platform.files));
+  if (platform) app.route('/api', gmailRoutes(platform.gmail));
   if (platform) app.route('/api', computerRoutes(platform.computers));
   if (platform)
     app.route(
