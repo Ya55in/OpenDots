@@ -35,7 +35,7 @@ export function budgetFetch(
     if (typeof init?.body !== 'string')
       throw new Error('Model request must have a JSON body.');
     const body = JSON.parse(init.body);
-    if (router && recovered?.original === body.model) {
+    if (router && recovered && recovered.original === body.model) {
       body.model = recovered.model;
       delete body.reasoning;
     }
