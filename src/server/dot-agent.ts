@@ -373,6 +373,24 @@ export class DotAgent extends AbstractAgent {
                 threadId: input.threadId,
                 runId: input.runId,
                 freeOnly,
+                allowFallback: ['auto', 'economy'].includes(
+                  routingPreference.mode,
+                ),
+                onFallback: (model) => {
+                  this.workspace.routing.record(input.threadId, {
+                    model,
+                    tier: 'standard',
+                    source: 'policy',
+                    selectedAt: Date.now(),
+                    reason:
+                      'The first provider was unavailable. Recovered with an economical model within the same price ceilings.',
+                  });
+                  subscriber.next({
+                    type: EventType.CUSTOM,
+                    name: 'model_recovery',
+                    value: { model },
+                  });
+                },
               })
             : undefined;
           const modelFetch: typeof fetch | undefined = controlledFetch

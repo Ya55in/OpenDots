@@ -9,7 +9,14 @@ export class CostControlError extends Error {}
 export function budgetFetch(
   store: RoutingStore,
   config: RouterConfig,
-  scope: { runId: string; dotId: string; threadId: string; freeOnly?: boolean },
+  scope: {
+    runId: string;
+    dotId: string;
+    threadId: string;
+    freeOnly?: boolean;
+    allowFallback?: boolean;
+    onFallback?: (model: string) => void;
+  },
   transport: typeof fetch = fetch,
 ): typeof fetch {
   return async (url, init) => {
@@ -148,6 +155,39 @@ export function budgetFetch(
     }
     if (!response.ok) {
       finish('failed');
+      // Only retry explicit pre-generation rejections, never a streamed
+      // answer or an uncertain network failure that could duplicate work.
+      if (
+        router &&
+        scope.allowFallback &&
+        !scope.freeOnly &&
+        [404, 429, 503].includes(response.status) &&
+        !init.signal?.aborted
+      ) {
+        const rate = modelRates[body.model];
+        const hasImages = JSON.stringify(body.messages).includes('image_url');
+        const alternate = ['z-ai/glm-5.3-flash', 'qwen/qwen3.8-flash'].find(
+          (model) =>
+            model !== body.model &&
+            modelRates[model].input <= rate.input &&
+            modelRates[model].output <= rate.output &&
+            (!hasImages || modelRates[model].vision),
+        );
+        if (alternate) {
+          await response.body?.cancel();
+          scope.onFallback?.(alternate);
+          delete body.reasoning;
+          return budgetFetch(
+            store,
+            config,
+            { ...scope, allowFallback: false },
+            transport,
+          )(url, {
+            ...init,
+            body: JSON.stringify({ ...body, model: alternate }),
+          });
+        }
+      }
       return response;
     } // Retain unconfirmed charges.
     let truncated = false;

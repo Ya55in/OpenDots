@@ -310,3 +310,91 @@ it('uses supported GLM reasoning and reports truncation after settling streamed 
     ws.close();
   }
 });
+
+it('recovers pre-generation rejection once without raising prices or replaying a run', async () => {
+  const ws = new WorkspaceStore(':memory:', 'owner');
+  try {
+    const notice = vi.fn();
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response('No endpoints found', { status: 404 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: 'Ready' } }],
+            usage: { cost: 0.001 },
+          }),
+        ),
+      );
+    const response = await budgetFetch(
+      ws.routing,
+      config,
+      {
+        runId: 'fallback',
+        dotId: 'dot',
+        threadId: 'thread',
+        allowFallback: true,
+        onFallback: notice,
+      },
+      request,
+    )('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      body: JSON.stringify({
+        model: 'deepseek/deepseek-v4-pro',
+        messages: [{ role: 'user', content: 'Make a PDF' }],
+        max_tokens: 2000,
+      }),
+    });
+    expect(response.ok).toBe(true);
+    expect(request).toHaveBeenCalledTimes(2);
+    const body = JSON.parse(String(request.mock.calls[1][1]?.body));
+    expect(body.model).toBe('z-ai/glm-5.3-flash');
+    expect(body.provider.max_price).toEqual({
+      prompt: 0.2,
+      completion: 0.6,
+      request: 0,
+    });
+    expect(body.reasoning).toEqual({ effort: 'low' });
+    expect(notice).toHaveBeenCalledWith(body.model);
+  } finally {
+    ws.close();
+  }
+});
+
+it.each([false, true])(
+  'bounds fallback attempts and preserves manual choice (automatic=%s)',
+  async (automatic) => {
+    const ws = new WorkspaceStore(':memory:', 'owner');
+    try {
+      const request = vi
+        .fn<typeof fetch>()
+        .mockImplementation(
+          async () => new Response('Unavailable', { status: 503 }),
+        );
+      const response = await budgetFetch(
+        ws.routing,
+        config,
+        {
+          runId: 'bounded',
+          dotId: 'dot',
+          threadId: 'thread',
+          allowFallback: automatic,
+        },
+        request,
+      )('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        body: JSON.stringify({
+          model: 'z-ai/glm-5.3-flash',
+          messages: [],
+          max_tokens: 100,
+        }),
+      });
+      expect(response.status).toBe(503);
+      expect(request).toHaveBeenCalledTimes(automatic ? 2 : 1);
+    } finally {
+      ws.close();
+    }
+  },
+);
