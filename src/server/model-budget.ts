@@ -19,6 +19,7 @@ export function budgetFetch(
   },
   transport: typeof fetch = fetch,
 ): typeof fetch {
+  let recovered: { original: string; model: string } | undefined;
   return async (url, init) => {
     const address = new URL(String(url));
     const jev =
@@ -34,6 +35,10 @@ export function budgetFetch(
     if (typeof init?.body !== 'string')
       throw new Error('Model request must have a JSON body.');
     const body = JSON.parse(init.body);
+    if (router && recovered?.original === body.model) {
+      body.model = recovered.model;
+      delete body.reasoning;
+    }
     if (scope.freeOnly && (jev || body.model !== FREE_ROUTER_MODEL))
       throw new CostControlError(
         'This conversation is free-only; paid model and Jev calls are disabled.',
@@ -160,6 +165,7 @@ export function budgetFetch(
       if (
         router &&
         scope.allowFallback &&
+        !recovered &&
         !scope.freeOnly &&
         [404, 429, 503].includes(response.status) &&
         !init.signal?.aborted
@@ -174,6 +180,7 @@ export function budgetFetch(
             (!hasImages || modelRates[model].vision),
         );
         if (alternate) {
+          recovered = { original: body.model, model: alternate };
           await response.body?.cancel();
           scope.onFallback?.(alternate);
           delete body.reasoning;
