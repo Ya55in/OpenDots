@@ -1,3 +1,4 @@
+import { retryConnection } from './retry-connection';
 import { chatError } from './chat-error';
 import { DocumentCard } from './DocumentCard';
 import { DocumentExport } from './DocumentExport';
@@ -115,6 +116,10 @@ export function Chat({
   const [running, setRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const runError = useRef('');
+  const connecting = useRef(false);
+  const connectionFailure = useRef<Error | null>(null);
+  const [connectionAttempt, setConnectionAttempt] = useState(0);
+  const [preferenceError, setPreferenceError] = useState('');
   useEffect(() => {
     if (!running) return;
     const start = Date.now();
@@ -132,22 +137,27 @@ export function Chat({
   const [preferencesSaving, setPreferencesSaving] = useState(false);
   useEffect(() => {
     let active = true;
-    setOpenUI(false);
+    const controller = new AbortController();
     setPreferencesReady(false);
-    void Promise.all([
-      api<{ openui?: boolean }>(
-        '/session',
-        'GET',
-        undefined,
-        AbortSignal.timeout(8000),
-      ),
-      api<{ interactive: boolean }>(
-        `/dots/${dot.id}/chat-preferences`,
-        'GET',
-        undefined,
-        AbortSignal.timeout(8000),
-      ),
-    ])
+    setPreferenceError('');
+    void retryConnection(
+      () =>
+        Promise.all([
+          api<{ openui?: boolean }>(
+            '/session',
+            'GET',
+            undefined,
+            AbortSignal.timeout(8000),
+          ),
+          api<{ interactive: boolean }>(
+            `/dots/${dot.id}/chat-preferences`,
+            'GET',
+            undefined,
+            AbortSignal.timeout(8000),
+          ),
+        ]),
+      controller.signal,
+    )
       .then(([session, preference]) => {
         if (active) {
           setOpenUIAvailable(session.openui === true);
@@ -157,23 +167,29 @@ export function Chat({
       })
       .catch(() => {
         if (active) {
-          setOpenUIAvailable(false);
-          setPreferencesReady(true);
-          setError(
-            'Response preferences could not load. Reload to restore interactive mode.',
+          setPreferenceError(
+            'Your saved response mode could not load. Retry settings to restore it before sending.',
           );
         }
       });
     return () => {
       active = false;
+      controller.abort();
     };
-  }, [dot.id]);
+  }, [dot.id, connectionAttempt]);
   const voice = useVoice(thread.id, onSaved, agent.messages.at(-1)?.id);
   const sent = useRef(false);
   const bottom = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const subscription = copilotkit.subscribe({
-      onError: ({ error }) => setError(error.message),
+      onError: ({ error, code }) => {
+        if (connecting.current) {
+          if (String(code).toLowerCase().includes('connect_failed'))
+            connectionFailure.current = error;
+          return;
+        }
+        if (sending.current) setError(error.message);
+      },
     });
     const events = agent.subscribe({
       onCustomEvent: ({ event }) => {
@@ -183,6 +199,7 @@ export function Chat({
           );
       },
       onRunErrorEvent: ({ event }) => {
+        if (connecting.current || !sending.current) return;
         runError.current = event.message;
         setError(event.message);
       },
@@ -195,21 +212,51 @@ export function Chat({
   useEffect(() => {
     if (!isReady) return;
     let active = true;
-    void copilotkit
-      .connectAgent({ agent })
+    const controller = new AbortController();
+    setLoaded(false);
+    connecting.current = true;
+    void retryConnection(async () => {
+      connectionFailure.current = null;
+      await copilotkit.connectAgent({ agent });
+      if (connectionFailure.current) throw connectionFailure.current;
+    }, controller.signal)
       .then(() => {
-        if (active) setLoaded(true);
+        if (active) {
+          setLoaded(true);
+          setError('');
+        }
       })
-      .catch((e) => {
+      .catch(() => {
         if (active)
           setError(
-            e instanceof Error ? e.message : 'Conversation could not connect.',
+            'The connection could not be restored. Check your network and try again.',
           );
+      })
+      .finally(() => {
+        if (active) connecting.current = false;
       });
     return () => {
       active = false;
+      controller.abort();
+      connecting.current = false;
     };
-  }, [agent, copilotkit, isReady]);
+  }, [agent, copilotkit, isReady, connectionAttempt]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const restore = () => {
+      if (!sending.current && !connecting.current)
+        setConnectionAttempt((value) => value + 1);
+    };
+    const visible = () => {
+      if (document.visibilityState === 'visible') restore();
+    };
+    window.addEventListener('online', restore);
+    document.addEventListener('visibilitychange', visible);
+    return () => {
+      window.removeEventListener('online', restore);
+      document.removeEventListener('visibilitychange', visible);
+    };
+  }, []);
   const send = async (text: string, resume = false) => {
     if (
       (!resume && !text.trim() && !attachments.length) ||
@@ -229,7 +276,16 @@ export function Chat({
     setRunning(true);
     try {
       if (resume) {
-        await copilotkit.connectAgent({ agent });
+        connecting.current = true;
+        try {
+          await retryConnection(async () => {
+            connectionFailure.current = null;
+            await copilotkit.connectAgent({ agent });
+            if (connectionFailure.current) throw connectionFailure.current;
+          });
+        } finally {
+          connecting.current = false;
+        }
         runError.current = '';
         setError('');
         setLoaded(true);
@@ -461,11 +517,18 @@ export function Chat({
       <details className="chat-options">
         <summary>
           Chat options{' '}
-          <span>{openUI ? 'Interactive' : 'Text'} · model & agent</span>
+          <span>
+            {!preferencesReady
+              ? 'Restoring settings…'
+              : openUI
+                ? 'Interactive'
+                : 'Text'}{' '}
+            · model & agent
+          </span>
         </summary>
         <div className="chat-options-body">
           <ModelRouting threadId={thread.id} running={running} />
-          {openUIAvailable && (
+          {openUIAvailable && preferencesReady && (
             <label className="openui-option">
               <input
                 type="checkbox"
@@ -475,11 +538,13 @@ export function Chat({
                   const interactive = event.target.checked;
                   setPreferencesSaving(true);
                   try {
-                    const saved = await api<{ interactive: boolean }>(
-                      `/dots/${dot.id}/chat-preferences`,
-                      'PUT',
-                      { interactive },
-                      AbortSignal.timeout(8000),
+                    const saved = await retryConnection(() =>
+                      api<{ interactive: boolean }>(
+                        `/dots/${dot.id}/chat-preferences`,
+                        'PUT',
+                        { interactive },
+                        AbortSignal.timeout(8000),
+                      ),
                     );
                     setOpenUI(saved.interactive);
                   } catch {
@@ -590,6 +655,14 @@ export function Chat({
         <div className="chat-error" role="status">
           No completed answer follows your last message. Your request is saved.
           You can ask the agent to continue or change its model in Chat options.
+        </div>
+      )}
+      {preferenceError && (
+        <div className="chat-error" role="alert">
+          {preferenceError}
+          <button onClick={() => setConnectionAttempt((value) => value + 1)}>
+            Retry settings
+          </button>
         </div>
       )}
       {contextError && (

@@ -209,3 +209,54 @@ it('continues a saved failed request without duplicating the user message', asyn
   expect(mocks.agent.addMessage).toHaveBeenCalledTimes(1);
   expect(mocks.copilotkit.runAgent).toHaveBeenCalledTimes(2);
 });
+
+it('ignores historical run errors replayed while restoring the conversation', async () => {
+  mocks.copilotkit.connectAgent.mockImplementationOnce(async () => {
+    const handlers = (
+      mocks.agent.subscribe.mock.calls as unknown as unknown[][]
+    ).at(-1)?.[0] as unknown as { onRunErrorEvent: (event: unknown) => void };
+    handlers.onRunErrorEvent({ event: { message: '402 old credit failure' } });
+  });
+  await act(async () => {
+    root = create(<Chat {...props} />);
+  });
+  expect(JSON.stringify(root!.toJSON())).not.toContain(
+    'provider could not authorize',
+  );
+  expect(JSON.stringify(root!.toJSON())).not.toContain('402');
+});
+
+it('restores the saved interactive mode after the chat is remounted', async () => {
+  const original = mocks.api.getMockImplementation()!;
+  let saved = false;
+  mocks.api.mockImplementation(async (path, method, body) => {
+    if (path === '/session') return { openui: true };
+    if (path.endsWith('/chat-preferences')) {
+      if (method === 'PUT')
+        saved = (body as { interactive: boolean }).interactive;
+      return { interactive: saved };
+    }
+    return null;
+  });
+  try {
+    await act(async () => {
+      root = create(<Chat {...props} />);
+    });
+    await act(async () => {
+      await root!.root
+        .findByProps({ type: 'checkbox' })
+        .props.onChange({ target: { checked: true } });
+    });
+    await act(async () => {
+      root!.unmount();
+    });
+    await act(async () => {
+      root = create(<Chat {...props} />);
+    });
+    expect(root!.root.findByProps({ type: 'checkbox' }).props.checked).toBe(
+      true,
+    );
+  } finally {
+    mocks.api.mockImplementation(original);
+  }
+});
