@@ -132,10 +132,22 @@ export function ModelRouting({
         {status.jevConfigured
           ? 'configured'
           : 'not configured · agent rules active'}
-        . {status.dailyTurnLimit} turn attempts per agent/day (UTC). AI budget:
-        ${status.dailyUsd}/day workspace · ${status.dotDailyUsd}/day per Dot · $
-        {status.turnUsd}/request. Includes model calls, Jev and document visual
-        review; external service fees are separate.
+        .{' '}
+        {status.monthlyUsd ? (
+          <>
+            Shared budget: ${status.monthlyUsd}/calendar month (UTC), across all
+            users and agents. Free models first, then inexpensive paid fallback
+            in automatic mode.
+          </>
+        ) : (
+          <>
+            {status.dailyTurnLimit} turn attempts per agent/day (UTC). AI
+            budget: ${status.dailyUsd}/day workspace · ${status.dotDailyUsd}/day
+            per Dot · ${status.turnUsd}/request.
+          </>
+        )}{' '}
+        Includes model calls, Jev and document visual review; external service
+        fees are separate.
       </small>
       <UsagePanel threadId={threadId} />
       {threadId &&

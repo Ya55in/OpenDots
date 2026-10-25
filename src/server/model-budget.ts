@@ -167,7 +167,7 @@ export function budgetFetch(
         scope.allowFallback &&
         !recovered &&
         !scope.freeOnly &&
-        [404, 429, 503].includes(response.status) &&
+        [404, 429, 502, 503, 504].includes(response.status) &&
         !init.signal?.aborted
       ) {
         const rate = modelRates[body.model];
@@ -175,8 +175,9 @@ export function budgetFetch(
         const alternate = ['z-ai/glm-5.3-flash', 'qwen/qwen3.8-flash'].find(
           (model) =>
             model !== body.model &&
-            modelRates[model].input <= rate.input &&
-            modelRates[model].output <= rate.output &&
+            (body.model === FREE_ROUTER_MODEL ||
+              (modelRates[model].input <= rate.input &&
+                modelRates[model].output <= rate.output)) &&
             (!hasImages || modelRates[model].vision),
         );
         if (alternate) {

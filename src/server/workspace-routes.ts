@@ -94,6 +94,8 @@ export function workspaceRoutes(platform: Platform, voice: VoiceService) {
         ]
       : [],
     dailyTurnLimit: platform.config.router?.dailyTurnLimit ?? 0,
+    monthlyUsd: platform.config.router?.monthlyUsd,
+    freeFirst: platform.config.router?.freeFirst,
     dailyUsd: platform.config.router?.dailyUsd,
     turnUsd: platform.config.router?.turnUsd,
     dotDailyUsd: platform.config.router?.dotDailyUsd,

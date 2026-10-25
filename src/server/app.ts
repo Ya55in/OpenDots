@@ -194,15 +194,17 @@ export function createApp({
     const snapshot = platform.workspace.routing.usageSnapshot(dotId);
     return c.json({
       ...snapshot,
+      monthly: platform.workspace.routing.monthlySpending(),
       calls: snapshot.calls.map((call) => ({
         ...call,
         dotName: platform.workspace.dot(call.dotId)?.name,
       })),
       budgets: router
         ? {
-            daily: router.dailyUsd,
-            dotDaily: router.dotDailyUsd,
-            request: router.turnUsd,
+            monthly: router.monthlyUsd,
+            daily: router.monthlyUsd ? null : router.dailyUsd,
+            dotDaily: router.monthlyUsd ? null : router.dotDailyUsd,
+            request: router.monthlyUsd ? null : router.turnUsd,
           }
         : null,
     });

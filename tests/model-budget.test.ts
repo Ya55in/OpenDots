@@ -434,3 +434,132 @@ it('keeps the recovered model for subsequent tool steps in the same run', async 
     ws.close();
   }
 });
+
+it('shares monthly reservations across users and agents and allows free calls at the cap', () => {
+  const w = new WorkspaceStore(':memory:', 'owner');
+  const monthly = { ...config, monthlyUsd: 20 };
+  try {
+    const one = { runId: 'one', dotId: 'sales', threadId: 'a' };
+    w.routing.reserveSpend(one, 'paid', 15, monthly);
+    w.routing.reserveSpend(
+      { runId: 'two', dotId: 'hiba', threadId: 'b' },
+      'paid',
+      5,
+      monthly,
+    );
+    expect(() =>
+      w.routing.reserveSpend(
+        { runId: 'three', dotId: 'presale', threadId: 'c' },
+        'paid',
+        0.01,
+        monthly,
+      ),
+    ).toThrow('monthly');
+    expect(() =>
+      w.routing.reserveSpend(
+        { runId: 'free', dotId: 'presale', threadId: 'c' },
+        FREE_ROUTER_MODEL,
+        0,
+        monthly,
+      ),
+    ).not.toThrow();
+    expect(w.routing.monthlySpending().reserved).toBe(20);
+  } finally {
+    w.close();
+  }
+});
+it('starts automatic routing free without Jev while preserving manual selection', async () => {
+  const cfg = { ...config, freeFirst: true };
+  const result = await chooseModel(
+    cfg,
+    { mode: 'auto' },
+    'Audit a complex CPS',
+    null,
+    new AbortController().signal,
+  );
+  expect(result.model).toBe(FREE_ROUTER_MODEL);
+  expect(
+    (
+      await chooseModel(
+        cfg,
+        { mode: 'manual', model: cfg.models.routine },
+        'Hello',
+        null,
+        new AbortController().signal,
+      )
+    ).model,
+  ).toBe(cfg.models.routine);
+});
+it('falls back from the free preset to a cheap paid model with a separate reservation', async () => {
+  const w = new WorkspaceStore(':memory:', 'owner');
+  const transport = vi
+    .fn()
+    .mockResolvedValueOnce(new Response('', { status: 429 }))
+    .mockResolvedValueOnce(
+      Response.json({
+        choices: [{ message: { content: 'OK' } }],
+        usage: { cost: 0.001 },
+      }),
+    );
+  try {
+    const request = budgetFetch(
+      w.routing,
+      { ...config, monthlyUsd: 20 },
+      {
+        runId: 'free-fallback',
+        dotId: 'd',
+        threadId: 't',
+        allowFallback: true,
+      },
+      transport,
+    );
+    const result = await request(
+      'https://openrouter.ai/api/v1/chat/completions',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          model: FREE_ROUTER_MODEL,
+          messages: [{ role: 'user', content: 'Hello' }],
+          max_tokens: 100,
+        }),
+      },
+    );
+    expect(result.status).toBe(200);
+    expect(
+      JSON.parse(transport.mock.calls[0][1].body).provider.max_price.prompt,
+    ).toBe(0);
+    expect(JSON.parse(transport.mock.calls[1][1].body).model).toBe(
+      'z-ai/glm-5.3-flash',
+    );
+    expect(w.routing.monthlySpending().charged).toBe(0.001);
+  } finally {
+    w.close();
+  }
+});
+it('resets the shared allowance at a UTC calendar-month boundary', () => {
+  vi.useFakeTimers();
+  const w = new WorkspaceStore(':memory:', 'owner');
+  try {
+    const cfg = { ...config, monthlyUsd: 20 };
+    vi.setSystemTime(new Date('2026-10-31T23:59:59Z'));
+    w.routing.reserveSpend(
+      { runId: 'oct', dotId: 'd', threadId: 't' },
+      'paid',
+      20,
+      cfg,
+    );
+    vi.setSystemTime(new Date('2026-11-01T00:00:00Z'));
+    expect(w.routing.monthlySpending().reserved).toBe(0);
+    expect(() =>
+      w.routing.reserveSpend(
+        { runId: 'nov', dotId: 'd', threadId: 't' },
+        'paid',
+        20,
+        cfg,
+      ),
+    ).not.toThrow();
+  } finally {
+    w.close();
+    vi.useRealTimers();
+  }
+});

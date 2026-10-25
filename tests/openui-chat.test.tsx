@@ -187,7 +187,7 @@ it('reports empty assistant messages as failed instead of silently completing', 
     root!.root.findByType('form').props.onSubmit({ preventDefault() {} }),
   );
   expect(JSON.stringify(root!.toJSON())).toContain(
-    'The answer could not finish',
+    'The model returned no usable answer',
   );
   expect(props.onSaved).not.toHaveBeenCalled();
 });

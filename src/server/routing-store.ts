@@ -162,6 +162,18 @@ export class RoutingStore {
       calls: Number(row.calls),
     };
   }
+  monthlySpending(month = new Date().toISOString().slice(0, 7)) {
+    const row = this.db
+      .prepare(
+        `SELECT COALESCE(SUM(charged),0) charged, COALESCE(SUM(CASE WHEN charged IS NULL THEN reserved ELSE 0 END),0) reserved FROM model_spend WHERE substr(day,1,7)=?`,
+      )
+      .get(month)!;
+    return {
+      month,
+      charged: Number(row.charged) / 1e6,
+      reserved: Number(row.reserved) / 1e6,
+    };
+  }
   reserveSpend(
     scope: { runId: string; dotId: string; threadId: string },
     model: string,
@@ -192,15 +204,34 @@ export class RoutingStore {
         throw new Error(
           'Model call limit reached for this request. Saved files remain available.',
         );
-      if (Number(totals.total) + amount > Math.floor(config.dailyUsd * 1e6))
+      if (config.monthlyUsd) {
+        const used = this.monthlySpending(day.slice(0, 7));
+        if (
+          amount > 0 &&
+          used.charged + used.reserved + amount / 1e6 > config.monthlyUsd
+        )
+          throw new Error(
+            'Shared monthly AI budget reached. Free models remain available; paid models resume next month.',
+          );
+      }
+      if (
+        !config.monthlyUsd &&
+        Number(totals.total) + amount > Math.floor(config.dailyUsd * 1e6)
+      )
         throw new Error(
           'Workspace daily AI budget reached. No further provider request was sent.',
         );
-      if (Number(totals.dot) + amount > Math.floor(config.dotDailyUsd * 1e6))
+      if (
+        !config.monthlyUsd &&
+        Number(totals.dot) + amount > Math.floor(config.dotDailyUsd * 1e6)
+      )
         throw new Error(
           'This Dot reached its daily AI budget. No further provider request was sent.',
         );
-      if (Number(totals.run) + amount > Math.floor(config.turnUsd * 1e6))
+      if (
+        !config.monthlyUsd &&
+        Number(totals.run) + amount > Math.floor(config.turnUsd * 1e6)
+      )
         throw new Error(
           'This request would exceed its AI budget. Use a cheaper model or a shorter context.',
         );
