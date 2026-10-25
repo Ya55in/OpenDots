@@ -604,3 +604,19 @@ it('restores access to originals on reconnect only for the same Google identity'
   });
   expect(w.files.canReadOriginal(another.id, first.id)).toBe(false);
 });
+
+it('keeps computer uploads usable when Drive authorization expires', async () => {
+  const { w, service, dot, space } = setup();
+  connect(service, space);
+  vi.spyOn(service.drive, 'upload').mockRejectedValue(
+    new Error('Google Drive authorization expired. Reconnect this Space.'),
+  );
+  const id = upload(w, space, dot.id, 'Important knowledge');
+  const saved = await service.finish(space, id);
+  expect(saved.provider).toBe('local');
+  expect(saved.textStatus).toContain('not synced to Drive');
+  expect((await service.download(space, id)).data.toString()).toBe(
+    'Important knowledge',
+  );
+  expect((await service.finish(space, id)).id).toBe(id);
+});

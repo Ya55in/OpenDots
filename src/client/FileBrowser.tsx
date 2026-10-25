@@ -43,15 +43,18 @@ export function FileBrowser({
     let active = true;
     setFiles([]);
     setError('');
-    void Promise.all([
+    setStatus(undefined);
+    void Promise.allSettled([
       api<StorageStatus>(`${scope}/storage`),
       api<StoredFile[]>(`${scope}/files?dotId=${encodeURIComponent(dotId)}`),
     ])
       .then(([s, f]) => {
         if (active) {
-          setStatus(s);
-          setFiles(f);
-          setMore(f.length === 30);
+          if (s.status === 'fulfilled') setStatus(s.value);
+          if (f.status === 'fulfilled') {
+            setFiles(f.value);
+            setMore(f.value.length === 30);
+          } else setError('Could not load saved files. Please try again.');
         }
       })
       .catch((e) => {
@@ -142,7 +145,7 @@ export function FileBrowser({
     <section className="file-browser" aria-label="Dot files">
       <p className="muted">
         {status?.connected
-          ? 'Files are saved in this Dot’s Google Drive folder.'
+          ? 'Uploads use this Dot’s Google Drive folder. If Drive authorization has expired, computer uploads are saved privately in OpenDots.'
           : 'Files are saved privately in OpenDots. Connect Drive in Space storage to save future uploads there.'}{' '}
         Attached files stay searchable in this Dot’s memory. Up to 25 MB each.
       </p>
@@ -170,11 +173,13 @@ export function FileBrowser({
           type="button"
           disabled={busy || !status?.connected || !status.pickerReady}
           title={
-            !status?.connected
-              ? 'Connect Google Drive in Space storage'
-              : !status.pickerReady
-                ? 'Finish Google Picker setup in Space storage'
-                : undefined
+            status?.member
+              ? 'An administrator can add Drive files. You can upload computer files here.'
+              : !status?.connected
+                ? 'Connect Google Drive in Space storage'
+                : !status.pickerReady
+                  ? 'Finish Google Picker setup in Space storage'
+                  : undefined
           }
           onClick={() =>
             void operation(async () => {

@@ -20,3 +20,14 @@ it('does not expose unknown provider payloads', () => {
     JSON.stringify(chatError('internal token=secret stack trace')),
   ).not.toContain('secret');
 });
+it('distinguishes slow, empty and truncated responses', () => {
+  expect(chatError('time limit exceeded').title).toBe(
+    'The AI took too long to respond',
+  );
+  expect(chatError('No readable answer').title).toBe(
+    'The model returned no usable answer',
+  );
+  expect(chatError('output limit reached').title).toBe(
+    'The answer reached its length limit',
+  );
+});

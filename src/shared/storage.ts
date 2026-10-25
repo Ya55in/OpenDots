@@ -14,6 +14,7 @@ export interface StoredFile {
   createdAt: number;
 }
 export interface StorageStatus {
+  member?: boolean;
   connected: boolean;
   email?: string;
   folderUrl?: string;
