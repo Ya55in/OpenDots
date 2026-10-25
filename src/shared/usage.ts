@@ -10,7 +10,13 @@ export interface UsageSnapshot {
     cachedTokens: number | null;
     cacheWriteTokens: number | null;
   };
-  budgets: { daily: number; dotDaily: number; request: number } | null;
+  monthly?: { month: string; charged: number; reserved: number };
+  budgets: {
+    monthly?: number;
+    daily: number | null;
+    dotDaily: number | null;
+    request: number | null;
+  } | null;
   calls: {
     id: string;
     dotId: string;

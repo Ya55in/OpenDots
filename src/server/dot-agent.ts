@@ -389,7 +389,7 @@ export class DotAgent extends AbstractAgent {
                     source: 'policy',
                     selectedAt: Date.now(),
                     reason:
-                      'The first provider was unavailable. Recovered with an economical model within the same price ceilings.',
+                      'The first provider was unavailable. Recovered with an inexpensive paid model within the shared budget.',
                   });
                   subscriber.next({
                     type: EventType.CUSTOM,
@@ -428,10 +428,11 @@ export class DotAgent extends AbstractAgent {
             const preference = this.workspace.routing.preference(
               input.threadId,
             );
-            this.workspace.routing.reserveTurn(
-              dot.id,
-              this.config.router.dailyTurnLimit,
-            );
+            if (!this.config.router.monthlyUsd)
+              this.workspace.routing.reserveTurn(
+                dot.id,
+                this.config.router.dailyTurnLimit,
+              );
             const request = routingRequest(input.messages);
             const selection = await chooseModel(
               this.config.router,

@@ -37,6 +37,8 @@ export interface RouterConfig {
   dotDailyUsd: number;
   maxCalls: number;
   reviewModel: string;
+  monthlyUsd?: number;
+  freeFirst?: boolean;
 }
 export function routerConfigFromEnv(
   env: Record<string, string | undefined>,
@@ -66,6 +68,8 @@ export function routerConfigFromEnv(
   return {
     models,
     reviewModel,
+    monthlyUsd: number('ROUTER_MONTHLY_USD', 0, 0, 1000),
+    freeFirst: env.ROUTER_FREE_FIRST === 'true',
     jevKey: env.TYPESAFE_API_KEY || undefined,
     jevModel: env.TYPESAFE_MODEL || 'jev-latest',
     dailyTurnLimit: Math.floor(
@@ -145,6 +149,15 @@ export async function chooseModel(
       'manual',
     );
   }
+  if (config.freeFirst && ['auto', 'economy'].includes(preference.mode))
+    return {
+      model: FREE_ROUTER_MODEL,
+      tier: 'reasoning',
+      source: 'policy',
+      selectedAt: Date.now(),
+      reason:
+        'Free models first; inexpensive paid fallback only when unavailable. Shared monthly budget applies.',
+    };
   if (preference.mode === 'economy')
     return decision('routine', 'Economy: cheapest reviewed general model.');
   if (preference.mode === 'quality')

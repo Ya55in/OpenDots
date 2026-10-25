@@ -19,6 +19,8 @@ export interface RoutingStatus {
   jevConfigured: boolean;
   models: { id: string; tier: RoutingTier; label?: string }[];
   dailyTurnLimit: number;
+  monthlyUsd?: number;
+  freeFirst?: boolean;
   dailyUsd?: number;
   turnUsd?: number;
   dotDailyUsd?: number;

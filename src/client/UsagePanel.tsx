@@ -113,10 +113,29 @@ export function UsagePanel({ threadId }: { threadId?: string }) {
                 </div>
               </div>
               <p>
-                {data.totals.calls} calls today (UTC) · Daily limit{' '}
-                {money(data.budgets?.daily ?? null)} · Per agent{' '}
-                {money(data.budgets?.dotDaily ?? null)} · Per request{' '}
-                {money(data.budgets?.request ?? null)}
+                {data.budgets?.monthly ? (
+                  <>
+                    Shared monthly limit: {money(data.budgets.monthly)} · Used{' '}
+                    {money(data.monthly?.charged ?? 0)} · Reserved{' '}
+                    {money(data.monthly?.reserved ?? 0)} · Remaining{' '}
+                    {money(
+                      Math.max(
+                        0,
+                        data.budgets.monthly -
+                          (data.monthly?.charged ?? 0) -
+                          (data.monthly?.reserved ?? 0),
+                      ),
+                    )}
+                    . Resets on the first of each month (UTC).
+                  </>
+                ) : (
+                  <>
+                    {data.totals.calls} calls today (UTC) · Daily limit{' '}
+                    {money(data.budgets?.daily ?? null)} · Per agent{' '}
+                    {money(data.budgets?.dotDaily ?? null)} · Per request{' '}
+                    {money(data.budgets?.request ?? null)}
+                  </>
+                )}
               </p>
               {threadId && (
                 <label>

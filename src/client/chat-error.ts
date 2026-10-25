@@ -11,6 +11,12 @@ export function chatError(message: string) {
       text: 'The provider’s credit or account limit blocked generation. An administrator can check the provider account and key limits. Reconnecting alone will not fix it.',
       retry: false,
     };
+  if (/monthly AI budget/i.test(message))
+    return {
+      title: 'The shared monthly AI budget is used up',
+      text: 'Paid models have paused for all users until next month. Free-only models remain available. An administrator can review usage.',
+      retry: false,
+    };
   if (/budget|daily|spend|request would exceed/i.test(message))
     return {
       title: 'Your AI spending limit was reached',
