@@ -13,8 +13,15 @@ export function learningSelector(
   channelDotId?: string,
 ): Selector {
   return ({ surface, user, agentId, input }) => {
-    if (user?.id !== workspace.ownerId)
-      throw new Error('Conversation learning requires the workspace owner.');
+    if (user?.id !== workspace.currentUserId)
+      throw new Error('Conversation learning requires the authenticated user.');
+    if (workspace.member()) {
+      if (surface !== 'web')
+        throw new Error('Member channel access is unavailable.');
+      workspace.requireThread(input.threadId, agentId);
+      // Shared owner learning containers must never collect member conversations.
+      return null;
+    }
     if (surface === 'channel') {
       if (agentId !== channelDotId)
         throw new Error(

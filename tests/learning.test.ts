@@ -1,3 +1,4 @@
+import { memberContext } from '../src/server/members.js';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -163,4 +164,30 @@ it('rejects invalid container IDs and delivery without a container', () => {
     }),
   ).toThrow();
   expect(ws.dot(dot.id)?.learningContainerId).toBeNull();
+});
+
+it('allows member chat without sharing owner learning or other threads', () => {
+  const { ws, dot } = fixture();
+  ws.bindThread('owner-private', dot.id, 'Owner');
+  const member = ws.members.create({
+    name: 'Member',
+    active: true,
+    dotIds: [dot.id],
+    spaceIds: [dot.spaceId],
+  });
+  memberContext.run(member.member.id, () => {
+    ws.bindThread('member-thread', dot.id, 'Member');
+    const select = learningSelector(ws);
+    const args = {
+      surface: 'web' as const,
+      user: { id: ws.currentUserId, name: 'Member' },
+      agentId: dot.id,
+      input: input('member-thread'),
+    };
+    expect(select(args)).toBeNull();
+    expect(() => select({ ...args, input: input('owner-private') })).toThrow();
+    expect(() =>
+      select({ ...args, user: { id: 'owner', name: 'Owner' } }),
+    ).toThrow();
+  });
 });

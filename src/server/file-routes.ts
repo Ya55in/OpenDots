@@ -30,9 +30,16 @@ export function fileRoutes(service: FileService) {
       return c.json({ error: 'Space not found.' }, 404);
     await next();
   });
-  app.get('/spaces/:spaceId/storage', (c) =>
-    c.json(drive.status(c.req.param('spaceId'))),
-  );
+  app.get('/spaces/:spaceId/storage', (c) => {
+    const status = drive.status(c.req.param('spaceId'));
+    if (service.workspace.member())
+      return c.json({
+        connected: status.connected,
+        pickerReady: false,
+        member: true,
+      });
+    return c.json(status);
+  });
   app.put('/storage/google/app', async (c) => {
     const b = z
       .object({

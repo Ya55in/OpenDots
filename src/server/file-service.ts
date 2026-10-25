@@ -83,14 +83,19 @@ export class FileService {
       const extracted = await extractFile(data, u.name, u.mimeType);
       this.scope(spaceId, u.dotId, u.threadId);
       const drive = this.workspace.files.account(spaceId)
-        ? await this.drive.upload(
-            spaceId,
-            u.dotId,
-            id,
-            u.name,
-            u.mimeType,
-            data,
-          )
+        ? await this.drive
+            .upload(spaceId, u.dotId, id, u.name, u.mimeType, data)
+            .catch((error: unknown) => {
+              if (
+                error instanceof Error &&
+                error.message.includes('Google Drive authorization expired')
+              ) {
+                extracted.textStatus +=
+                  ' Saved privately in OpenDots; not synced to Drive. Ask an administrator to reconnect this Space’s Drive.';
+                return null;
+              }
+              throw error;
+            })
         : null;
       this.scope(spaceId, u.dotId, u.threadId);
       const result = this.workspace.files.add(

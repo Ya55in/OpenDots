@@ -53,6 +53,7 @@ export async function memberRouteAllowed(request: Request, ws: WorkspaceStore) {
   if (tail.startsWith('knowledge/')) return method === 'GET';
   if (tail === 'documents')
     return method === 'POST' && typeof body.dotId === 'string';
+  if (tail === 'storage') return method === 'GET';
   if (tail === 'files') return method === 'GET';
   if (tail === 'files/uploads')
     return method === 'POST' && typeof body.dotId === 'string';

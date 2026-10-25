@@ -17,12 +17,22 @@ export function chatError(message: string) {
       text: 'Generation stopped to protect your budget. An administrator can review AI consumption and limits, or you can wait for the daily allowance to reset.',
       retry: false,
     };
-  if (
-    /output limit|readable answer|time limit|timeout|timed out/i.test(message)
-  )
+  if (/time limit|timeout|timed out/i.test(message))
     return {
-      title: 'The answer could not finish',
-      text: 'The response reached a limit. Any visible answer remains available. Continue the saved request, ask for a smaller part, or choose another model in Chat options.',
+      title: 'The AI took too long to respond',
+      text: 'The request exceeded its time allowance. Any visible answer is saved. Try a smaller part or another model; continuing may use additional credits.',
+      retry: true,
+    };
+  if (/readable answer/i.test(message))
+    return {
+      title: 'The model returned no usable answer',
+      text: 'The provider finished without a readable response. Try another model in Chat options. Your request remains saved.',
+      retry: true,
+    };
+  if (/output limit/i.test(message))
+    return {
+      title: 'The answer reached its length limit',
+      text: 'The visible answer is saved. Continue the saved request or ask for the remaining work in smaller parts. Continuing may use additional credits.',
       retry: true,
     };
   if (/401|403|unauthorized|forbidden/i.test(message))

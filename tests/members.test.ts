@@ -282,3 +282,19 @@ it('persists interactive preferences per user and Dot without granting agent adm
     ).status,
   ).toBe(403);
 });
+
+it('lets members inspect safe storage status without administering Drive', async () => {
+  const f = fixture();
+  const result = await f.req(`/spaces/${f.a.id}/storage`);
+  expect(result.status).toBe(200);
+  expect(await result.json()).toEqual({
+    connected: false,
+    pickerReady: false,
+    member: true,
+  });
+  expect((await f.req(`/spaces/${f.b.id}/storage`)).status).toBe(403);
+  expect(
+    (await f.req(`/spaces/${f.a.id}/storage/picker`, f.m.token, 'POST', {}))
+      .status,
+  ).toBe(403);
+});
