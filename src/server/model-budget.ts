@@ -29,11 +29,11 @@ export function budgetFetch(
       address.origin === 'https://openrouter.ai' &&
       address.pathname === '/api/v1/chat/completions';
     if (!jev && !router)
-      throw new Error(
+      throw new CostControlError(
         'Cost-controlled model transport only supports configured OpenRouter and Jev endpoints.',
       );
     if (typeof init?.body !== 'string')
-      throw new Error('Model request must have a JSON body.');
+      throw new CostControlError('Model request must have a JSON body.');
     const body = JSON.parse(init.body);
     if (router && recovered && recovered.original === body.model) {
       body.model = recovered.model;
@@ -73,7 +73,8 @@ export function budgetFetch(
         ];
       }
       const rate = modelRates[body.model];
-      if (!rate) throw new Error('This model has no approved price ceiling.');
+      if (!rate)
+        throw new CostControlError('This model has no approved price ceiling.');
       let imageCount = 0;
       const text = JSON.stringify(
         { messages: body.messages, tools: body.tools },
@@ -86,16 +87,18 @@ export function budgetFetch(
         },
       );
       if (imageCount && !rate.vision)
-        throw new Error(
+        throw new CostControlError(
           'Selected model does not support images. Choose a vision-capable model.',
         );
       if (imageCount > 6 || Buffer.byteLength(text) > 200000)
-        throw new Error(
+        throw new CostControlError(
           'Model context is too large for economical execution. Start a focused chat or retrieve fewer source sections.',
         );
       const output = Number(body.max_tokens ?? body.max_completion_tokens);
       if (!Number.isInteger(output) || output < 1 || output > 24000)
-        throw new Error('A bounded model output allowance is required.');
+        throw new CostControlError(
+          'A bounded model output allowance is required.',
+        );
       // Match each model's published reasoning capabilities: GLM requires
       // reasoning and defaults to max, while Qwen allows disabling it.
       if (body.model === 'qwen/qwen3.8-flash')
@@ -218,7 +221,7 @@ export function budgetFetch(
       settle(value);
       if (truncated) {
         finish('failed');
-        throw new Error(
+        throw new CostControlError(
           'The model reached its output limit before completing the answer. Your conversation is saved. Ask it to continue, or select another model in Chat options.',
         );
       }
@@ -238,7 +241,9 @@ export function budgetFetch(
           const lines = pending.split('\n');
           pending = lines.pop() ?? '';
           if (pending.length > 2000000)
-            throw new Error('Provider stream line exceeds the allowed size.');
+            throw new CostControlError(
+              'Provider stream line exceeds the allowed size.',
+            );
           for (const line of lines)
             if (line.startsWith('data: ')) {
               try {
@@ -267,7 +272,7 @@ export function budgetFetch(
           const { value, done } = await reader.read();
           if (done) {
             if (truncated)
-              throw new Error(
+              throw new CostControlError(
                 'The model reached its output limit before completing the answer. Your conversation is saved. Ask it to continue, or select another model in Chat options.',
               );
             finish('complete');
