@@ -616,7 +616,13 @@ export class DotAgent extends AbstractAgent {
                 } else if (timedOut && !finished) {
                   subscriber.next(timeLimitError());
                   subscriber.complete();
-                } else subscriber.error(costFailure ?? error);
+                } else if (costFailure) {
+                  subscriber.next({
+                    type: EventType.RUN_ERROR,
+                    message: costFailure.message,
+                  });
+                  subscriber.complete();
+                } else subscriber.error(error);
               },
               complete: () => {
                 if (controller.signal.aborted && !finished)
