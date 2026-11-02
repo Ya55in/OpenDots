@@ -1,7 +1,7 @@
 import { FREE_ROUTER_MODEL } from '../src/shared/routing.js';
 import { afterEach, expect, it, vi } from 'vitest';
 import { WorkspaceStore } from '../src/server/workspace.js';
-import { budgetFetch } from '../src/server/model-budget.js';
+import { budgetFetch, CostControlError } from '../src/server/model-budget.js';
 import {
   chooseModel,
   routerConfigFromEnv,
@@ -616,4 +616,30 @@ it('parses an explicit testing policy without removing price ceilings', () => {
   expect(cfg.spendLimitsEnabled).toBe(false);
   expect(cfg.freeFirst).toBe(true);
   expect(cfg.maxCalls).toBeGreaterThan(0);
+});
+
+it('preserves local context validation as a user-facing error before provider access', async () => {
+  const w = new WorkspaceStore(':memory:', 'owner');
+  try {
+    const network = vi.fn<typeof fetch>();
+    const request = budgetFetch(
+      w.routing,
+      { ...config, spendLimitsEnabled: false },
+      { runId: 'context', dotId: 'd', threadId: 't' },
+      network,
+    );
+    await expect(
+      request('https://openrouter.ai/api/v1/chat/completions', {
+        body: JSON.stringify({
+          model: config.models.expert,
+          max_tokens: 1000,
+          messages: [{ role: 'user', content: 'x'.repeat(200001) }],
+        }),
+      }),
+    ).rejects.toBeInstanceOf(CostControlError);
+    expect(network).not.toHaveBeenCalled();
+    expect(w.routing.monthlySpending().reserved).toBe(0);
+  } finally {
+    w.close();
+  }
 });
