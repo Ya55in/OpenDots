@@ -428,7 +428,10 @@ export class DotAgent extends AbstractAgent {
             const preference = this.workspace.routing.preference(
               input.threadId,
             );
-            if (!this.config.router.monthlyUsd)
+            if (
+              this.config.router.spendLimitsEnabled !== false &&
+              !this.config.router.monthlyUsd
+            )
               this.workspace.routing.reserveTurn(
                 dot.id,
                 this.config.router.dailyTurnLimit,

@@ -195,18 +195,20 @@ export function createApp({
     return c.json({
       ...snapshot,
       monthly: platform.workspace.routing.monthlySpending(),
+      spendLimitsEnabled: router?.spendLimitsEnabled !== false,
       calls: snapshot.calls.map((call) => ({
         ...call,
         dotName: platform.workspace.dot(call.dotId)?.name,
       })),
-      budgets: router
-        ? {
-            monthly: router.monthlyUsd,
-            daily: router.monthlyUsd ? null : router.dailyUsd,
-            dotDaily: router.monthlyUsd ? null : router.dotDailyUsd,
-            request: router.monthlyUsd ? null : router.turnUsd,
-          }
-        : null,
+      budgets:
+        router && router.spendLimitsEnabled !== false
+          ? {
+              monthly: router.monthlyUsd,
+              daily: router.monthlyUsd ? null : router.dailyUsd,
+              dotDaily: router.monthlyUsd ? null : router.dotDailyUsd,
+              request: router.monthlyUsd ? null : router.turnUsd,
+            }
+          : null,
     });
   });
   if (platform) app.route('/api', fileRoutes(platform.files));

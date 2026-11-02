@@ -1,4 +1,21 @@
 export function chatError(message: string) {
+  if (
+    /model call limit|maximum.*(step|iteration)|max.*(step|iteration)|step limit/i.test(
+      message,
+    )
+  )
+    return {
+      title: 'This task needs another processing step',
+      text: 'The agent reached its tool-step limit, not a spending cap. Your progress and saved files remain available. Continue the saved request to resume.',
+      retry: true,
+    };
+  if (/context.*(large|length|limit)|too many tokens/i.test(message))
+    return {
+      title: 'Too much material for one model request',
+      text: 'The request exceeded the model context limit. Your files are saved. Ask the agent to review them in smaller batches and then combine the findings.',
+      retry: true,
+    };
+
   if (/max price|no endpoints|404|503|overload|429|rate.limit/i.test(message))
     return {
       title: 'The AI provider is unavailable',

@@ -204,7 +204,7 @@ export class RoutingStore {
         throw new Error(
           'Model call limit reached for this request. Saved files remain available.',
         );
-      if (config.monthlyUsd) {
+      if (config.spendLimitsEnabled !== false && config.monthlyUsd) {
         const used = this.monthlySpending(day.slice(0, 7));
         if (
           amount > 0 &&
@@ -215,6 +215,7 @@ export class RoutingStore {
           );
       }
       if (
+        config.spendLimitsEnabled !== false &&
         !config.monthlyUsd &&
         Number(totals.total) + amount > Math.floor(config.dailyUsd * 1e6)
       )
@@ -222,6 +223,7 @@ export class RoutingStore {
           'Workspace daily AI budget reached. No further provider request was sent.',
         );
       if (
+        config.spendLimitsEnabled !== false &&
         !config.monthlyUsd &&
         Number(totals.dot) + amount > Math.floor(config.dotDailyUsd * 1e6)
       )
@@ -229,6 +231,7 @@ export class RoutingStore {
           'This Dot reached its daily AI budget. No further provider request was sent.',
         );
       if (
+        config.spendLimitsEnabled !== false &&
         !config.monthlyUsd &&
         Number(totals.run) + amount > Math.floor(config.turnUsd * 1e6)
       )

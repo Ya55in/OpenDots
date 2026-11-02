@@ -31,3 +31,11 @@ it('distinguishes slow, empty and truncated responses', () => {
     'The answer reached its length limit',
   );
 });
+it('identifies workflow limits separately from spending caps', () => {
+  expect(chatError('Model call limit reached for this request.').title).toBe(
+    'This task needs another processing step',
+  );
+  expect(
+    chatError('Model context is too large for economical execution.').title,
+  ).toBe('Too much material for one model request');
+});
