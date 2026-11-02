@@ -339,3 +339,63 @@ it('free preset bypasses Jev even for complex tasks', async () => {
   });
   expect(network).not.toHaveBeenCalled();
 });
+
+it('surfaces oversized context through the real adapter instead of Connection error', async () => {
+  const ws = new WorkspaceStore(':memory:', 'owner');
+  const store = new Store(':memory:');
+  try {
+    const dot = ws.dots()[0];
+    ws.bindThread('context-check', dot.id, 'Context check');
+    ws.routing.setPreference('context-check', {
+      mode: 'manual',
+      model: router.models.expert,
+    });
+    const network = vi.spyOn(globalThis, 'fetch');
+    const agent = new DotAgent(
+      store,
+      ws,
+      {
+        router: { ...router, spendLimitsEnabled: false },
+        apiKey: 'fixture',
+        intelligenceKey: 'fixture',
+        model: router.models.expert,
+        baseUrl: 'https://openrouter.ai/api/v1',
+        runtimeUrl: '',
+        voiceName: 'marin',
+        slackUsers: [],
+      },
+      dot.id,
+    );
+    const events = await lastValueFrom(
+      agent
+        .run({
+          threadId: 'context-check',
+          runId: 'context-check',
+          state: {},
+          context: [],
+          messages: [
+            {
+              id: 'large',
+              role: 'user',
+              content: 'Review these documents: ' + 'x'.repeat(210000),
+            },
+          ],
+          tools: [],
+          forwardedProps: {},
+        })
+        .pipe(toArray()),
+    );
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'RUN_ERROR',
+          message: expect.stringContaining('context is too large'),
+        }),
+      ]),
+    );
+    expect(network).not.toHaveBeenCalled();
+  } finally {
+    ws.close();
+    store.close();
+  }
+});
