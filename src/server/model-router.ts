@@ -37,6 +37,7 @@ export interface RouterConfig {
   dotDailyUsd: number;
   maxCalls: number;
   reviewModel: string;
+  spendLimitsEnabled?: boolean;
   monthlyUsd?: number;
   freeFirst?: boolean;
 }
@@ -68,6 +69,7 @@ export function routerConfigFromEnv(
   return {
     models,
     reviewModel,
+    spendLimitsEnabled: env.ROUTER_SPEND_LIMITS_ENABLED !== 'false',
     monthlyUsd: number('ROUTER_MONTHLY_USD', 0, 0, 1000),
     freeFirst: env.ROUTER_FREE_FIRST === 'true',
     jevKey: env.TYPESAFE_API_KEY || undefined,

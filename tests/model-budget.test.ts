@@ -563,3 +563,57 @@ it('resets the shared allowance at a UTC calendar-month boundary', () => {
     vi.useRealTimers();
   }
 });
+
+it('testing mode disables every spend cap while still recording and settling usage', () => {
+  const w = new WorkspaceStore(':memory:', 'owner');
+  try {
+    const cfg = { ...config, monthlyUsd: 20, spendLimitsEnabled: false };
+    const id = w.routing.reserveSpend(
+      { runId: 'testing', dotId: 'd', threadId: 't' },
+      'paid',
+      25,
+      cfg,
+    );
+    expect(w.routing.monthlySpending().reserved).toBe(25);
+    expect(() =>
+      w.routing.reserveSpend(
+        { runId: 'daily-disabled', dotId: 'd', threadId: 'v' },
+        'paid',
+        2,
+        { ...cfg, monthlyUsd: 0 },
+      ),
+    ).not.toThrow();
+    w.routing.settleSpend(id, 21);
+    expect(w.routing.monthlySpending().charged).toBe(21);
+    expect(w.routing.monthlySpending().reserved).toBe(2);
+    expect(() =>
+      w.routing.reserveSpend(
+        { runId: 'next', dotId: 'other', threadId: 'u' },
+        'paid',
+        25,
+        cfg,
+      ),
+    ).not.toThrow();
+    expect(() =>
+      w.routing.reserveSpend(
+        { runId: 'blocked', dotId: 'd', threadId: 't' },
+        'paid',
+        1,
+        { ...cfg, spendLimitsEnabled: true },
+      ),
+    ).toThrow('monthly');
+  } finally {
+    w.close();
+  }
+});
+it('parses an explicit testing policy without removing price ceilings', () => {
+  const cfg = routerConfigFromEnv({
+    MODEL_ROUTER_ENABLED: 'true',
+    ROUTER_SPEND_LIMITS_ENABLED: 'false',
+    ROUTER_MONTHLY_USD: '20',
+    ROUTER_FREE_FIRST: 'true',
+  })!;
+  expect(cfg.spendLimitsEnabled).toBe(false);
+  expect(cfg.freeFirst).toBe(true);
+  expect(cfg.maxCalls).toBeGreaterThan(0);
+});

@@ -133,7 +133,13 @@ export function ModelRouting({
           ? 'configured'
           : 'not configured · agent rules active'}
         .{' '}
-        {status.monthlyUsd ? (
+        {status.spendLimitsEnabled === false ? (
+          <>
+            Testing mode: no daily, monthly or per-request spending caps. Usage
+            is still recorded. Automatic mode tries free models first, then
+            inexpensive paid models.
+          </>
+        ) : status.monthlyUsd ? (
           <>
             Shared budget: ${status.monthlyUsd}/calendar month (UTC), across all
             users and agents. Free models first, then inexpensive paid fallback

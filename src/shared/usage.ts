@@ -10,6 +10,7 @@ export interface UsageSnapshot {
     cachedTokens: number | null;
     cacheWriteTokens: number | null;
   };
+  spendLimitsEnabled?: boolean;
   monthly?: { month: string; charged: number; reserved: number };
   budgets: {
     monthly?: number;

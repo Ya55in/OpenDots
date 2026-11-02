@@ -113,7 +113,14 @@ export function UsagePanel({ threadId }: { threadId?: string }) {
                 </div>
               </div>
               <p>
-                {data.budgets?.monthly ? (
+                {data.spendLimitsEnabled === false ? (
+                  <>
+                    Testing mode — spending caps off. This month:{' '}
+                    {money(data.monthly?.charged ?? 0)} charged ·{' '}
+                    {money(data.monthly?.reserved ?? 0)} reserved. Usage
+                    tracking remains active.
+                  </>
+                ) : data.budgets?.monthly ? (
                   <>
                     Shared monthly limit: {money(data.budgets.monthly)} · Used{' '}
                     {money(data.monthly?.charged ?? 0)} · Reserved{' '}
